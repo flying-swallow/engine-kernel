@@ -10,8 +10,10 @@ pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
     const upstream = b.dependency("volk", .{});
+    const vulkan = b.dependency("vulkan", .{});
     const module = b.addModule("volk", .{ .root_source_file = b.path("main.zig") });
     module.addIncludePath(upstream.path(""));
+    module.addIncludePath(vulkan.path("include"));
 
     const lib = b.addLibrary(.{
         .name = "volk",
@@ -47,6 +49,11 @@ pub fn build(b: *std.Build) !void {
             "volk.c"
         } 
     });
+    lib.installHeadersDirectory(
+        vulkan.path("include"),
+        "",
+        .{ .include_extensions = &.{".h"} },
+    );
     lib.installHeadersDirectory(
         upstream.path(""),
         "",

@@ -196,6 +196,7 @@ target: union(rhi.Backend) {
         is_buffer_device_address_supported: bool = false,
         is_amd_device_coherent_memory_supported: bool = false,
         is_present_id_supported: bool = false,
+        is_maintenance5_supported: bool = false,
     }),
     dx12: rhi.wrapper_platform_type(.dx12, struct {}),
     mtl: rhi.wrapper_platform_type(.mtl, struct {}),
@@ -260,8 +261,16 @@ pub fn enumerate_adapters(allocator: std.mem.Allocator, renderer: *rhi.Renderer)
                     0x8086 => .intel,
                     else => .unknown,
                 },
-                .target = .{ .vk = .{ .api_version = properties.properties.apiVersion, .physical_device = physicalDeviceProperties[i].physicalDevices[0], .is_present_id_supported = present_id_features.presentId > 0, .is_swap_chain_supported = vulkan.vk_has_extension(extension_properties, volk.c.VK_KHR_SWAPCHAIN_EXTENSION_NAME), .is_buffer_device_address_supported = properties.properties.apiVersion >= volk.c.VK_API_VERSION_1_2 or
-                    vulkan.vk_has_extension(extension_properties, volk.c.VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME), .is_amd_device_coherent_memory_supported = vulkan.vk_has_extension(extension_properties, volk.c.VK_AMD_DEVICE_COHERENT_MEMORY_EXTENSION_NAME) } },
+                .target = .{ .vk = .{ 
+                        .api_version = properties.properties.apiVersion, 
+                        .physical_device = physicalDeviceProperties[i].physicalDevices[0], 
+                        .is_present_id_supported = present_id_features.presentId > 0, 
+                        .is_swap_chain_supported = vulkan.vk_has_extension(extension_properties, volk.c.VK_KHR_SWAPCHAIN_EXTENSION_NAME), 
+                        .is_buffer_device_address_supported = properties.properties.apiVersion >= volk.c.VK_API_VERSION_1_2 or vulkan.vk_has_extension(extension_properties, volk.c.VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME), 
+                        .is_amd_device_coherent_memory_supported = vulkan.vk_has_extension(extension_properties, volk.c.VK_AMD_DEVICE_COHERENT_MEMORY_EXTENSION_NAME), 
+                        .is_maintenance5_supported =  vulkan.vk_has_extension(extension_properties, volk.c.VK_KHR_MAINTENANCE_5_EXTENSION_NAME), 
+                    } 
+                },
                 .preset_level = blk: {
                     for (gpu_preset.desktop_presets) |preset| {
                         if (preset.vendor_id == properties.properties.vendorID and preset.model_id == properties.properties.deviceID) {

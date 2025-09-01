@@ -128,19 +128,19 @@ pub fn init(alloc: std.mem.Allocator, impl: union(rhi.Backend) {
             volk.c.volkLoadInstance(instance);
             var debug_message_util: volk.c.VkDebugUtilsMessengerEXT = null;
             if(impl.vk.enable_validation_layer and volk.c.vkCreateDebugUtilsMessengerEXT != null) {
-                var debugCreateInfo = volk.c.VkDebugUtilsMessengerCreateInfoEXT{ .sType = volk.c.VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT };
-                debugCreateInfo.pfnUserCallback = &vulkan.debug_utils_messenger;
-                debugCreateInfo.pUserData = null;
-                debugCreateInfo.messageSeverity = volk.c.VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | 
+                var debug_create_info = volk.c.VkDebugUtilsMessengerCreateInfoEXT{ .sType = volk.c.VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT };
+                debug_create_info.pfnUserCallback = &vulkan.debug_utils_messenger;
+                debug_create_info.pUserData = null;
+                debug_create_info.messageSeverity = volk.c.VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | 
                                                   volk.c.VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
                                                   volk.c.VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | 
                                                   volk.c.VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-                debugCreateInfo.messageType = 
+                debug_create_info.messageType = 
                     volk.c.VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | 
                     volk.c.VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | 
                     volk.c.VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
 
-                try vulkan.wrap_err(volk.c.vkCreateDebugUtilsMessengerEXT.?(instance, &debugCreateInfo, null, &debug_message_util));
+                try vulkan.wrap_err(volk.c.vkCreateDebugUtilsMessengerEXT.?(instance, &debug_create_info, null, &debug_message_util));
             }
 
             return Renderer{ 

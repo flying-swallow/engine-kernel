@@ -3,17 +3,11 @@ const volk = @import("volk");
 
 pub const Queue = @This();
 
-pub const QueueType = enum {
-    graphics,
-    compute,
-    transfer,
-};
-
 target: union(rhi.Target) {
     vk: rhi.wrapper_platform_type(.vk, struct {
-        flags: volk.c.VkQueueFlags,
-        family_index: u32,
-        slot_index: u32,
-        queue: volk.c.VkQueue,
-    })
+        queue_flags: volk.c.VkQueueFlags = 0,
+        family_index: u32 = 0,
+        slot_index: u32 = 0,
+        queue: volk.c.VkQueue = null,
+    }) 
 }

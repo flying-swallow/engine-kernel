@@ -1,7 +1,7 @@
 .{
-    .name = .GraphicsKernel,
+    .name = .enginekit,
     .version = "0.0.0",
-    .fingerprint = 0x381abf064761bb69, // Changing this has security and trust implications.
+    .fingerprint = 0xd959c122a6bfffff, 
     .minimum_zig_version = "0.16.0",
     .dependencies = .{
         .sdl = .{
@@ -22,9 +22,6 @@
     .paths = .{
         "build.zig",
         "build.zig.zon",
-        "src",
-        // For example...
-        //"LICENSE",
-        //"README.md",
+        "src"
     },
 }

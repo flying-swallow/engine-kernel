@@ -7,6 +7,10 @@
         .volk = .{
             .url = "https://github.com/zeux/volk/archive/refs/tags/1.4.304.tar.gz",
             .hash = "N-V-__8AAM6ZBgBIXgvAA8c_vDecqpmN19205AyaaSjzENaf"
+        },
+        .vulkan = .{
+            .url = "git+https://github.com/KhronosGroup/Vulkan-Headers.git",
+            .hash = "N-V-__8AAESg9gHKzlANbo03d4Fcb5m_5aZXJXIhYbWzCe4G"
         }
     },
     .paths = .{
