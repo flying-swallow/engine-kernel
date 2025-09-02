@@ -2,6 +2,7 @@
 const std = @import("std");
 
 pub const rhi = @import("rhi/rhi.zig");
+pub const volk = @import("volk");
 
 //pub fn bufferedPrint() !void {
 //    // Stdout is for the actual output of your application, for example if you

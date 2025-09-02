@@ -1,7 +1,7 @@
 const volk = @import("volk");
 const std = @import("std");
 
-pub const default_device_extensions: [:0]const u8 = .{
+pub const default_device_extensions = &[_][:0]const u8 {
     volk.c.VK_KHR_SWAPCHAIN_EXTENSION_NAME,
     volk.c.VK_KHR_MAINTENANCE1_EXTENSION_NAME,
     volk.c.VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME,
@@ -71,7 +71,7 @@ pub const default_device_extensions: [:0]const u8 = .{
     //************************************************************************/
     // Nsight Aftermath
     //************************************************************************/
-    volk.c.VK_EXT_ASTC_DECODE_MODE_EXTENSION_NAME,
+    volk.c.VK_EXT_ASTC_DECODE_MODE_EXTENSION_NAME 
 };
 
 pub fn wrap_err(value: c_int) !void {

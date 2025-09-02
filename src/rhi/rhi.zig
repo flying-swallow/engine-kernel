@@ -15,6 +15,7 @@ pub const PhysicalAdapter = physical_adapter.PhysicalAdapter;
 pub const Queue = queue.Queue;
 pub const Device = device.Device;
 pub const Swapchain = swapchain.Swapchain;
+pub const WindowHandle = swapchain.WindowHandle;
 
 pub const Backend = enum {
     vk,

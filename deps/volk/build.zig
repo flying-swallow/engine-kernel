@@ -11,7 +11,7 @@ pub fn build(b: *std.Build) !void {
     const optimize = b.standardOptimizeOption(.{});
     const upstream = b.dependency("volk", .{});
     const vulkan = b.dependency("vulkan", .{});
-    const module = b.addModule("volk", .{ .root_source_file = b.path("main.zig") });
+    const module = b.addModule("volk", .{ .root_source_file = b.path("root.zig") });
     module.addIncludePath(upstream.path(""));
     module.addIncludePath(vulkan.path("include"));
 

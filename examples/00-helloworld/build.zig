@@ -1,30 +1,37 @@
 const std = @import("std");
-//const enginekit = @import("enginekit");
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
-    const mod = b.addModule("_00_helloworld", .{
-        .root_source_file = b.path("src/root.zig"),
-        .target = target,
-    });
+    const enginekit_dep = b.dependency("enginekit", .{});
+    const enginekit = enginekit_dep.module("enginekit");
 
     const root_module = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
         .imports = &.{
-            .{ .name = "_00_helloworld", .module = mod },
+            .{ .name = "enginekit", .module = enginekit}
         },
-    }); 
-    
-    const enginekit_dep = b.dependency("enginekit", .{});
-    root_module.addImport("enginekit", enginekit_dep.module("enginekit"));
+    });
 
     const exe = b.addExecutable(.{
         .name = "_00_helloworld",
         .root_module = root_module
     });
+    
+    const sdl_dep = b.dependency("sdl", .{
+        .target = target,
+        .optimize = optimize,
+        //.preferred_linkage = .static,
+        //.strip = null,
+        //.sanitize_c = null,
+        //.pic = null,
+        //.lto = null,
+        //.emscripten_pthreads = false,
+        //.install_build_config_h = false,
+    });
+    exe.linkLibrary(sdl_dep.artifact("SDL3"));
 
     b.installArtifact(exe);
 
@@ -39,7 +46,7 @@ pub fn build(b: *std.Build) void {
     }
 
     const mod_tests = b.addTest(.{
-        .root_module = mod,
+        .root_module = root_module,
     });
 
     const run_mod_tests = b.addRunArtifact(mod_tests);

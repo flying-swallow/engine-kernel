@@ -188,7 +188,7 @@ is_shader_atomics_i64_supported: bool = false,
 is_draw_parameters_emulation_enabled: bool = false,
 
 // API-specific fields
-target: union(rhi.Backend) {
+backend: union(rhi.Backend) {
     vk: rhi.wrapper_platform_type(.vk, struct {
         physical_device: volk.c.VkPhysicalDevice = std.mem.zeroes(volk.c.VkPhysicalDevice),
         api_version: u32 = 0,
@@ -261,7 +261,7 @@ pub fn enumerate_adapters(allocator: std.mem.Allocator, renderer: *rhi.Renderer)
                     0x8086 => .intel,
                     else => .unknown,
                 },
-                .target = .{ .vk = .{ 
+                .backend = .{ .vk = .{ 
                         .api_version = properties.properties.apiVersion, 
                         .physical_device = physicalDeviceProperties[i].physicalDevices[0], 
                         .is_present_id_supported = present_id_features.presentId > 0, 

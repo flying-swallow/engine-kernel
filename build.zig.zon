@@ -4,20 +4,12 @@
     .fingerprint = 0xd959c122a6bfffff, 
     .minimum_zig_version = "0.16.0",
     .dependencies = .{
-        .sdl = .{
-            .url = "git+https://github.com/castholm/SDL.git#1994ca5dbad5a3e3c670a9ab8533d86cfd97bdc0",
-            .hash = "sdl-0.2.6+3.2.20-7uIn9NgjfwHH5a6HhyLHat2nHU3OP5B05QHhKJKuxEex",
-        },
         .volk = .{ .path = "deps/volk", .lazy = true },
         .vma = .{ .path = "deps/vma", .lazy = true },
         .zwindows = .{
             .url = "git+https://github.com/zig-gamedev/zwindows.git#e2c049ff9abd7a3d32e5aaa04223fc9eee2c593a",
             .hash = "zwindows-0.2.0-dev-xMZ1u9hgDAAvgSPmVyhXSpSuq3chYsBsUXfb8E_W88Eo",
-        },
-        .zglfw = .{
-            .url = "git+https://github.com/zig-gamedev/zglfw.git#feeeff9386dd44ba2c18488113023865c41b80a4",
-            .hash = "zglfw-0.10.0-dev-zgVDNLyhIQCZR_rbIf7hnCKuifzcmPOLOQhd_hrqq8cl",
-        },
+        }
     },
     .paths = .{
         "build.zig",
