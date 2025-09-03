@@ -92,7 +92,24 @@ fn __priority_BT2020_G2084_10BIT(surface: *const volk.c.VkSurfaceFormatKHR) u32
 }
 
 pub fn deinit(self: *Swapchain) void {
-   _ = self; 
+    switch(self.backend) {
+        .vk => {
+            for(self.backend.vk.image_acquire_semaphores) |sem| {
+                volk.c.vkDestroySemaphore.?(self.backend.vk.swapchain, sem, null);
+            }
+            for(self.backend.vk.finish_semaphores) |sem| {
+                volk.c.vkDestroySemaphore.?(self.backend.vk.swapchain, sem, null);
+            }
+            volk.c.vkDestroySwapchainKHR.?(self.backend.vk.swapchain, self.backend.vk.swapchain, null);
+            volk.c.vkDestroySurfaceKHR.?(self.backend.vk.swapchain, self.backend.vk.surface, null);
+            self.allocator.free(self.backend.vk.images);
+            self.allocator.free(self.backend.vk.image_acquire_semaphores);
+            self.allocator.free(self.backend.vk.finish_semaphores);
+        },
+        .dx12 => {},
+        .mtl => {},
+    }
+
 }
 
 pub fn init(allocator: std.mem.Allocator, renderer: *rhi.Renderer, device : *rhi.Device, width: u16, height: u16, queue: *rhi.Queue, handle: WindowHandle, option: struct {
@@ -221,17 +238,14 @@ pub fn init(allocator: std.mem.Allocator, renderer: *rhi.Renderer, device : *rhi
     {
         var k: usize = 0;
         while (k < images.len) : (k += 1) {
-            
 			var createInfo: volk.c.VkSemaphoreCreateInfo = .{.sType = volk.c.VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
             var timelineCreateInfo: volk.c.VkSemaphoreTypeCreateInfo = .{.sType = volk.c.VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO};
             timelineCreateInfo.semaphoreType = volk.c.VK_SEMAPHORE_TYPE_BINARY;
             vulkan.add_next(&createInfo, &timelineCreateInfo);
-
             try vulkan.wrap_err(volk.c.vkCreateSemaphore.?(device.backend.vk.device, &createInfo, null, &semaphores_acquire[k]));
             try vulkan.wrap_err(volk.c.vkCreateSemaphore.?(device.backend.vk.device, &createInfo, null, &semaphores_finish[k]));
         }
     }
-
 
     return Swapchain{
         .allocator = allocator,

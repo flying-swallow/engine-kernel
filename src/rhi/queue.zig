@@ -12,4 +12,14 @@ backend: union(rhi.Backend) {
     }),
     dx12: rhi.wrapper_platform_type(.dx12, struct {}),
     mtl: rhi.wrapper_platform_type(.mtl, struct {}),
+},
+
+pub fn wait_queue_idle(self: *Queue) !void {
+    switch (self.backend) {
+        .vk => |vk| {
+            try rhi.vulkan.wrap_err(volk.c.vkQueueWaitIdle.?(vk.queue));
+        },
+        .dx12 => {},
+        .mtl => {},
+    }
 }

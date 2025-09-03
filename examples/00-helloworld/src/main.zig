@@ -16,6 +16,12 @@ var allocator: std.mem.Allocator = undefined;
 var renderer: rhi.Renderer = undefined;
 var swapchain: rhi.Swapchain = undefined;
 var device: rhi.Device = undefined;
+var pool: rhi.Pool = undefined;
+
+const FrameSet = struct {
+    cmd: rhi.Cmd
+};
+var frames: [2]FrameSet = undefined;
 
 /// Converts the return value of an SDL function to an error union.
 inline fn errify(value: anytype) error{SdlError}!switch (@typeInfo(@TypeOf(value))) {
@@ -156,7 +162,13 @@ fn sdlAppInit(appstate: ?*?*anyopaque, argv: [][*:0]u8) !sdl3.SDL_AppResult {
     }
     device = try rhi.Device.init(allocator, &renderer, &adapters.items[selected_adapter_index]);
     swapchain = try rhi.Swapchain.init(allocator, &renderer, &device, 640, 480, &device.graphics_queues, window_handle, .{});
-
+    pool = try rhi.Pool.init(.default, &renderer, &device, &device.graphics_queues, .{});
+    {
+        var i: usize = 0;
+        while (i < frames.len) : (i += 1) {
+            frames[i].cmd = try rhi.Cmd.init(&renderer, &device, &pool);
+        }
+    }
 
     return sdl3.SDL_APP_CONTINUE;
 }

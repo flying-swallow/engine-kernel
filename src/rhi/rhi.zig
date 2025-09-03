@@ -5,10 +5,13 @@ const builtin = @import("builtin");
 
 const renderer = @import("renderer.zig");
 const device = @import("device.zig");
-const texture = @import("texture.zig");
 const queue = @import("queue.zig");
 const physical_adapter = @import("physical_adapter.zig");
 const swapchain = @import("swapchain.zig");
+const descriptor = @import("descriptor.zig");
+const cmd = @import("cmd.zig");
+const texture = @import("texture.zig");
+const sampler = @import("sampler.zig");
 
 pub const Renderer = renderer.Renderer;
 pub const PhysicalAdapter = physical_adapter.PhysicalAdapter;
@@ -16,6 +19,18 @@ pub const Queue = queue.Queue;
 pub const Device = device.Device;
 pub const Swapchain = swapchain.Swapchain;
 pub const WindowHandle = swapchain.WindowHandle;
+pub const Pool = cmd.Pool;
+pub const Cmd = cmd.Cmd;
+pub const Texture = texture.Texture;
+pub const Descriptor = descriptor.Descriptor;
+pub const Sampler = sampler.Sampler;
+
+pub const Selection = enum {
+    default, 
+    vk,
+    dx12,
+    mtl
+};
 
 pub const Backend = enum {
     vk,
@@ -48,7 +63,6 @@ pub fn is_target_selected(comptime api: Backend, ren: *Renderer) bool{
         .mtl => return platform_has_api(.mtl) and ren.backend == .mtl,
     }
 }
-
 
 pub fn wrapper_platform_type(api: Backend, comptime impl: type) type{
     if(platform_has_api(api)){

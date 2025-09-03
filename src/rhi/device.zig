@@ -7,8 +7,8 @@ const vulkan = @import("vulkan.zig");
 pub const Device = @This();
 
 graphics_queues: rhi.Queue,
-compute_queues: ?rhi.Queue,
-transfer_queues: ?rhi.Queue,
+compute_queue: ?rhi.Queue,
+transfer_queue: ?rhi.Queue,
 adapter: rhi.PhysicalAdapter,
 backend: union(rhi.Backend) {
     vk: rhi.wrapper_platform_type(.vk, struct {
@@ -22,18 +22,6 @@ backend: union(rhi.Backend) {
     dx12: rhi.wrapper_platform_type(.dx12, struct {}),
     mtl: rhi.wrapper_platform_type(.mtl, struct {}),
 } = undefined,
-
-fn vk_is_matching_queue(queue: ?*rhi.Queue, min_queue_flags: *u32, required_bits: volk.c.VkQueueFlags) bool {
-    const matching_queue_flags: u32 = (queue.*.target.vk.flags & required_bits);
-    if (matching_queue_flags and ((queue.*.target.vk.flags & ~required_bits) == 0)) {
-        return true;
-    }
-    if (matching_queue_flags and ((queue.*.target.vk.flags - matching_queue_flags) < min_queue_flags.*)) {
-        min_queue_flags.* = (queue.*.target.vk.flags - matching_queue_flags);
-        return true;
-    }
-    return false;
-}
 
 fn supports_extension(extensions: [][:0]const u8, value: []const u8) bool {
     for (extensions) |ext| {
@@ -295,8 +283,8 @@ pub fn init(allocator: std.mem.Allocator, renderer: *rhi.Renderer, adapter: *rhi
 
         return .{ .graphics_queues = 
             if (rhi_queues[0]) |q| q else return error.NoGraphicsQueue, 
-            .compute_queues = rhi_queues[1], 
-            .transfer_queues = rhi_queues[2], 
+            .compute_queue = rhi_queues[1], 
+            .transfer_queue = rhi_queues[2], 
             .adapter = adapter.*, 
             .backend = .{ .vk = .{
                 .maintenance_5_feature_enabled = has_maintenance_5,

@@ -6,7 +6,6 @@ const assert = std.debug.assert;
 const builtin = @import("builtin"); 
 
 pub const Renderer = @This();
-allocator: std.mem.Allocator,
 backend: union(rhi.Backend) { 
     vk: rhi.wrapper_platform_type(.vk, struct { 
         api_version: u32, 
@@ -144,7 +143,6 @@ pub fn init(alloc: std.mem.Allocator, impl: union(rhi.Backend) {
             }
 
             return Renderer{ 
-                .allocator = alloc, 
                 .backend = .{ 
                     .vk = .{
                         .api_version = appInfo.apiVersion,
@@ -156,14 +154,14 @@ pub fn init(alloc: std.mem.Allocator, impl: union(rhi.Backend) {
         },
         .dx12 => {
             if (rhi.platform_has_api(.dx12)) {
-                return Renderer{ .allocator = alloc, .backend = .{ .dx12 = {} } };
+                return Renderer{ .backend = .{ .dx12 = {} } };
             }
             return error.DirectX12NotSupported;
             //@panic("DirectX 12 target not supported in this build configuration");
         },
         .mtl => {
             if (rhi.platform_has_api(.mtl)) {
-                return Renderer{ .allocator = alloc, .backend = .{ .mtl = {} } };
+                return Renderer{ .backend = .{ .mtl = {} } };
             }
             return error.MetalNotSupported;
         },
