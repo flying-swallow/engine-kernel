@@ -6,11 +6,11 @@ const vulkan = @import("vulkan.zig");
 
 pub const Device = @This();
 
-graphics_queues: rhi.Queue,
+graphics_queue: rhi.Queue,
 compute_queue: ?rhi.Queue,
 transfer_queue: ?rhi.Queue,
 adapter: rhi.PhysicalAdapter,
-backend: union(rhi.Backend) {
+backend: union {
     vk: rhi.wrapper_platform_type(.vk, struct {
         maintenance_5_feature_enabled: bool,
         conservative_raster_tier: bool,
@@ -281,7 +281,7 @@ pub fn init(allocator: std.mem.Allocator, renderer: *rhi.Renderer, adapter: *rhi
             break :p vma_allocator;
         };
 
-        return .{ .graphics_queues = 
+        return .{ .graphics_queue = 
             if (rhi_queues[0]) |q| q else return error.NoGraphicsQueue, 
             .compute_queue = rhi_queues[1], 
             .transfer_queue = rhi_queues[2], 

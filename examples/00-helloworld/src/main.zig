@@ -161,8 +161,8 @@ fn sdlAppInit(appstate: ?*?*anyopaque, argv: [][*:0]u8) !sdl3.SDL_AppResult {
             selected_adapter_index = idx;
     }
     device = try rhi.Device.init(allocator, &renderer, &adapters.items[selected_adapter_index]);
-    swapchain = try rhi.Swapchain.init(allocator, &renderer, &device, 640, 480, &device.graphics_queues, window_handle, .{});
-    pool = try rhi.Pool.init(.default, &renderer, &device, &device.graphics_queues, .{});
+    swapchain = try rhi.Swapchain.init(allocator, &renderer, &device, 640, 480, &device.graphics_queue, window_handle, .{});
+    pool = try rhi.Pool.init(&renderer, &device, &device.graphics_queue);
     {
         var i: usize = 0;
         while (i < frames.len) : (i += 1) {

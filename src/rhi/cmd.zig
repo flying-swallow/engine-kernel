@@ -14,19 +14,11 @@ pub const Pool = struct {
         mtl: void, // Metal does not use command pools
     },
 
-    pub fn init(comptime selection: rhi.Selection, renderer: *rhi.Renderer, device: *rhi.Device, queue: *rhi.Queue, option: switch(selection) {
-        .default => struct {},
-        .vk => struct {
-            flags: volk.c.VkCommandPoolCreateFlags = volk.c.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT
-        },
-        .dx12 => struct {},
-        .mtl => struct {},
-    }) !Self {
+    pub fn init(renderer: *rhi.Renderer, device: *rhi.Device, queue: *rhi.Queue) !Self {
         if (rhi.is_target_selected(.vk, renderer)) {
-            std.debug.assert(selection == .default or selection == .vk); // ensure the selection matches the backend 
             var cmd_pool_create_info = volk.c.VkCommandPoolCreateInfo {
                 .sType = volk.c.VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-                .flags = if(@hasField(@TypeOf(option), "flags")) option.flags else volk.c.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+                .flags = volk.c.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
                 .queueFamilyIndex = queue.backend.vk.family_index,
             };
             var pool: volk.c.VkCommandPool = null;
@@ -48,7 +40,6 @@ pub const Pool = struct {
 
 pub const Cmd = struct {
     pub const Self = @This();
-    pool: *Pool,
     backend: union(rhi.Backend) {
         vk: rhi.wrapper_platform_type(.vk, struct {
             cmd: volk.c.VkCommandBuffer = null,
@@ -68,7 +59,6 @@ pub const Cmd = struct {
             };
             try vulkan.wrap_err(volk.c.vkAllocateCommandBuffers.?(device.backend.vk.device, &command_allocate_info, &command));
             return .{
-                .pool = pool,
                 .backend = .{
                     .vk = .{
                         .cmd = command,

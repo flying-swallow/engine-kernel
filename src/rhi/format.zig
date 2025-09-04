@@ -1,4 +1,4 @@
-pub const Format = enum {
+pub const Format = enum(u16){
     unknown,
     // opengl specific
     l8_a8_unorm,

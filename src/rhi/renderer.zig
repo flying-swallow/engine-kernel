@@ -16,8 +16,8 @@ backend: union(rhi.Backend) {
     mtl: rhi.wrapper_platform_type(.mtl, struct {}),
 },
 
-pub fn deinit(self: *Renderer) void {
-    switch (self.backend) {
+pub fn deinit(renderer: *Renderer) void {
+    switch (renderer.backend) {
         .vk => |vk| {
             if (vk.debug_message_utils != null and volk.c.vkDestroyDebugUtilsMessengerEXT != null) {
                 volk.c.vkDestroyDebugUtilsMessengerEXT.?(vk.instance, vk.debug_message_utils, null);

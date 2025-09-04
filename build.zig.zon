@@ -1,7 +1,7 @@
 .{
     .name = .enginekit,
     .version = "0.0.0",
-    .fingerprint = 0xd959c122a6bfffff, 
+    .fingerprint = 0xd959c122a6bfffff,
     .minimum_zig_version = "0.16.0",
     .dependencies = .{
         .volk = .{ .path = "deps/volk", .lazy = true },
@@ -9,11 +9,11 @@
         .zwindows = .{
             .url = "git+https://github.com/zig-gamedev/zwindows.git#e2c049ff9abd7a3d32e5aaa04223fc9eee2c593a",
             .hash = "zwindows-0.2.0-dev-xMZ1u9hgDAAvgSPmVyhXSpSuq3chYsBsUXfb8E_W88Eo",
-        }
+        },
+        .zclay = .{
+            .url = "git+https://github.com/johan0A/clay-zig-bindings.git#18cc9c148f02c3f00f824cc3a36db5030fd3de34",
+            .hash = "zclay-0.2.2-Ej1rkJfRAABn4fTSKQ1Rn54ssdmyCsuBT3zjrdhSxTO4",
+        },
     },
-    .paths = .{
-        "build.zig",
-        "build.zig.zon",
-        "src"
-    },
+    .paths = .{ "build.zig", "build.zig.zon", "src" },
 }

@@ -3,6 +3,7 @@ const vma = @import("vma");
 const vulkan = @import("vulkan.zig");
 const builtin = @import("builtin");
 
+const format = @import("format.zig");
 const renderer = @import("renderer.zig");
 const device = @import("device.zig");
 const queue = @import("queue.zig");
@@ -10,8 +11,9 @@ const physical_adapter = @import("physical_adapter.zig");
 const swapchain = @import("swapchain.zig");
 const descriptor = @import("descriptor.zig");
 const cmd = @import("cmd.zig");
-const texture = @import("texture.zig");
+const image = @import("image.zig");
 const sampler = @import("sampler.zig");
+const buffer = @import("buffer.zig");
 
 pub const Renderer = renderer.Renderer;
 pub const PhysicalAdapter = physical_adapter.PhysicalAdapter;
@@ -21,9 +23,11 @@ pub const Swapchain = swapchain.Swapchain;
 pub const WindowHandle = swapchain.WindowHandle;
 pub const Pool = cmd.Pool;
 pub const Cmd = cmd.Cmd;
-pub const Texture = texture.Texture;
+pub const Image = image.Image;
 pub const Descriptor = descriptor.Descriptor;
 pub const Sampler = sampler.Sampler;
+pub const Format = format.Format;
+pub const Buffer = buffer.Buffer;
 
 pub const Selection = enum {
     default, 
