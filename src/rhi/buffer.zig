@@ -1,6 +1,7 @@
 const rhi = @import("rhi.zig");
 const volk = @import("volk");
 const vma = @import("vma");
+const std = @import("std");
 
 pub const Barrier = struct {
     pub const Self = @This();
@@ -27,9 +28,19 @@ backend: union {
     mtl: rhi.wrapper_platform_type(.mtl, struct {}),
 } = undefined,
 
+pub fn get_mapped_region(self: *Buffer, offset: usize, size: usize) !MappedMemoryRange {
+    if (self.mapped_region) |region| {
+        return .{
+            .buffer = self,
+            .memory_range = region[offset .. offset + size]
+        };
+    } 
+    return error.BufferNotMapped;
+}
+
 pub const MappedMemoryRange = struct {
     pub const Self = @This();
-    buffer: *Buffer,
+    buffer: Buffer, 
     memory_range: []u8,
 };
 

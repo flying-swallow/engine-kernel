@@ -3,17 +3,19 @@ const vma = @import("vma");
 const vulkan = @import("vulkan.zig");
 const builtin = @import("builtin");
 
-const format = @import("format.zig");
-const renderer = @import("renderer.zig");
-const device = @import("device.zig");
-const queue = @import("queue.zig");
-const physical_adapter = @import("physical_adapter.zig");
-const swapchain = @import("swapchain.zig");
-const descriptor = @import("descriptor.zig");
-const cmd = @import("cmd.zig");
-const image = @import("image.zig");
-const sampler = @import("sampler.zig");
-const buffer = @import("buffer.zig");
+pub const format = @import("format.zig");
+pub const renderer = @import("renderer.zig");
+pub const device = @import("device.zig");
+pub const queue = @import("queue.zig");
+pub const physical_adapter = @import("physical_adapter.zig");
+pub const swapchain = @import("swapchain.zig");
+pub const descriptor = @import("descriptor.zig");
+pub const cmd = @import("cmd.zig");
+pub const image = @import("image.zig");
+pub const sampler = @import("sampler.zig");
+pub const buffer = @import("buffer.zig");
+pub const fence = @import("fence.zig");
+pub const resource_loader = @import("resource_loader.zig");
 
 pub const Renderer = renderer.Renderer;
 pub const PhysicalAdapter = physical_adapter.PhysicalAdapter;
@@ -28,6 +30,8 @@ pub const Descriptor = descriptor.Descriptor;
 pub const Sampler = sampler.Sampler;
 pub const Format = format.Format;
 pub const Buffer = buffer.Buffer;
+pub const Fence = fence.Fence;
+pub const ResourceLoader = resource_loader.ResourceLoader;
 
 pub const Selection = enum {
     default, 

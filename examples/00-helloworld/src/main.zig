@@ -17,7 +17,7 @@ var renderer: rhi.Renderer = undefined;
 var swapchain: rhi.Swapchain = undefined;
 var device: rhi.Device = undefined;
 var pool: rhi.Pool = undefined;
-
+var resource_loader: rhi.ResourceLoader(rhi.resource_loader.DefaultResourceConfig) = undefined;
 const FrameSet = struct {
     cmd: rhi.Cmd
 };
