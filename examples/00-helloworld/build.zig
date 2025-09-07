@@ -1,6 +1,15 @@
 const std = @import("std");
 
-pub fn build(b: *std.Build) void {
+pub fn glslang_step(b: *std.Build, name: []const u8, input_shader: std.Build.LazyPath) !*std.Build.Step.Run {
+    const glslang_cmd = b.addSystemCommand(&.{"glslc"});
+    glslang_cmd.addFileArg(input_shader);
+    glslang_cmd.addArg("-o");
+    glslang_cmd.addArg(try b.build_root.join(b.allocator, &.{"src", "spv",b.fmt("{s}.spv", .{name})}));
+    glslang_cmd.step.name = b.fmt("{s} glslc", .{name});
+    return glslang_cmd;
+}
+
+pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
     const enginekit_dep = b.dependency("enginekit", .{});
@@ -32,6 +41,8 @@ pub fn build(b: *std.Build) void {
         //.install_build_config_h = false,
     });
     exe.linkLibrary(sdl_dep.artifact("SDL3"));
+    exe.step.dependOn(&(try glslang_step(b, "opaque.frag", b.path("assets/opaque.frag"))).step);
+    exe.step.dependOn(&(try glslang_step(b, "opaque.vert", b.path("assets/opaque.vert"))).step);                 
 
     b.installArtifact(exe);
 

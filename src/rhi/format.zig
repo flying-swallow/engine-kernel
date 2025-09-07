@@ -1,4 +1,6 @@
-pub const Format = enum(u16){
+pub const volk = @import("volk");
+
+pub const Format = enum(u16) {
     unknown,
     // opengl specific
     l8_a8_unorm,
@@ -101,9 +103,9 @@ pub const FormatProps = struct {
     format: Format, // self
     red_or_depth_bits: u8 = 0,
     green_or_stencil_bits: u8 = 0,
-    blue_bits: u8 = 0,	         // B bits (0 if channels < 3)
-    alpha_bits: u8 = 0,	       // A (or shared exponent) bits (0 if channels < 4)
-    luminance_bits: u8,     // L luminance
+    blue_bits: u8 = 0, // B bits (0 if channels < 3)
+    alpha_bits: u8 = 0, // A (or shared exponent) bits (0 if channels < 4)
+    luminance_bits: u8, // L luminance
     stride: u6 = 0, // block size in bytes
     block_width: u4 = 0, // 1 for plain formats, >1 for compressed
     block_height: u4 = 0, // 1 for plain formats, >1 for compressed
@@ -119,6 +121,84 @@ pub const FormatProps = struct {
     is_srgb: bool = 0, // sRGB
     is_stencil: bool = 0, // has stencil component
 };
+
+pub fn to_vk_format(format: Format) volk.c.VkFormat {
+    switch (format) {
+        .unknown => volk.c.VK_FORMAT_UNDEFINED, // UNKNOWN
+        .r8_unorm => volk.c.VK_FORMAT_R8_UNORM, // R8_UNORM
+        .r8_snorm => volk.c.VK_FORMAT_R8_SNORM, // R8_SNORM
+        .r8_uint => volk.c.VK_FORMAT_R8_UINT, // R8_UINT
+        .r8_sint => volk.c.VK_FORMAT_R8_SINT, // R8_SINT
+        .rg8_unorm => volk.c.VK_FORMAT_R8G8_UNORM, // RG8_UNORM
+        .rg8_snorm => volk.c.VK_FORMAT_R8G8_SNORM, // RG8_SNORM
+        .rg8_uint => volk.c.VK_FORMAT_R8G8_UINT, // RG8_UINT
+        .rg8_sint => volk.c.VK_FORMAT_R8G8_SINT, // RG8_SINT
+        .bgra8_unorm => volk.c.VK_FORMAT_B8G8R8A8_UNORM, // BGRA8_UNORM
+        .bgra8_srgb => volk.c.VK_FORMAT_B8G8R8A8_SRGB, // BGRA8_SRGB
+        .rgba8_unorm => volk.c.VK_FORMAT_R8G8B8A8_UNORM, // RGBA8_UNORM
+        .rgba8_srgb => volk.c.VK_FORMAT_R8G8B8A8_SRGB, // RGBA8_SRGB
+        .rgba8_snorm => volk.c.VK_FORMAT_R8G8B8A8_SNORM, // RGBA8_SNORM
+        .rgba8_uint => volk.c.VK_FORMAT_R8G8B8A8_UINT, // RGBA8_UINT
+        .rgba8_sint => volk.c.VK_FORMAT_R8G8B8A8_SINT, // RGBA8_SINT
+        .r16_unorm => volk.c.VK_FORMAT_R16_UNORM, // R16_UNORM
+        .r16_snorm => volk.c.VK_FORMAT_R16_SNORM, // R16_SNORM
+        .r16_uint => volk.c.VK_FORMAT_R16_UINT, // R16_UINT
+        .r16_sint => volk.c.VK_FORMAT_R16_SINT, // R16_SINT
+        .r16_sfloat => volk.c.VK_FORMAT_R16_SFLOAT, // R16_SFLOAT
+        .rg16_unorm => volk.c.VK_FORMAT_R16G16_UNORM, // RG16_UNORM
+        .rg16_snorm => volk.c.VK_FORMAT_R16G16_SNORM, // RG16_SNORM
+        .rg16_uint => volk.c.VK_FORMAT_R16G16_UINT, // RG16_UINT
+        .rg16_sint => volk.c.VK_FORMAT_R16G16_SINT, // RG16_SINT
+        .rg16_sfloat => volk.c.VK_FORMAT_R16G16_SFLOAT, // RG16_SFLOAT
+        .rgba16_unorm => volk.c.VK_FORMAT_R16G16B16A16_UNORM, // RGBA16_UNORM
+        .rgba16_snorm => volk.c.VK_FORMAT_R16G16B16A16_SNORM, // RGBA16_SNORM
+        .rgba16_uint => volk.c.VK_FORMAT_R16G16B16A16_UINT, // RGBA16_UINT
+        .rgba16_sint => volk.c.VK_FORMAT_R16G16B16A16_SINT, // RGBA16_SINT
+        .rgba16_sfloat => volk.c.VK_FORMAT_R16G16B16A16_SFLOAT, // RGBA16_SFLOAT
+        .r32_uint => volk.c.VK_FORMAT_R32_UINT, // R32_UINT
+        .r32_sint => volk.c.VK_FORMAT_R32_SINT, // R32_SINT
+        .r32_sfloat => volk.c.VK_FORMAT_R32_SFLOAT, // R32_SFLOAT
+        .rg32_uint => volk.c.VK_FORMAT_R32G32_UINT, // RG32_UINT
+        .rg32_sint => volk.c.VK_FORMAT_R32G32_SINT, // RG32_SINT
+        .rg32_sfloat => volk.c.VK_FORMAT_R32G32_SFLOAT, // RG32_SFLOAT
+        .rgb32_uint => volk.c.VK_FORMAT_R32G32B32_UINT, // RGB32_UINT
+        .rgb32_sint => volk.c.VK_FORMAT_R32G32B32_SINT, // RGB32_SINT
+        .rgb32_sfloat => volk.c.VK_FORMAT_R32G32B32_SFLOAT, // RGB32_SFLOAT
+        .rgb32_uint => volk.c.VK_FORMAT_R32G32B32A32_UINT, // RGB32_UINT
+        .rgb32_sint => volk.c.VK_FORMAT_R32G32B32A32_SINT, // RGB32_SINT
+        .rgb32_sfloat => volk.c.VK_FORMAT_R32G32B32A32_SFLOAT, // RGB32_SFLOAT
+        .b5_g6_r5_unorm => volk.c.VK_FORMAT_R5G6B5_UNORM_PACK16, // B5_G6_R5_UNORM
+        .b5_g5_r5_a1_unORM => volk.c.VK_FORMAT_A1R5G5B5_UNORM_PACK16, // B5_G5_R5_A1_UNORM
+        .b4_g4_r4_a4_unORM => volk.c.VK_FORMAT_A4R4G4B4_UNORM_PACK16, // B4_G4_R4_A4_UNORM
+        .r10_g10_b10_a2_UNORM => volk.c.VK_FORMAT_A2B10G10R10_UNORM_PACK32, // R10_G10_B10_A2_UNORM
+        .r10_g10_b10_a2_UINT => volk.c.VK_FORMAT_A2B10G10R10_UINT_PACK32, // R10_G10_B10_A2_UINT
+        .r11_g11_b10_ufLOAT => volk.c.VK_FORMAT_B10G11R11_UFLOAT_PACK32, // R11_G11_B10_UFLOAT
+        .r9_g9_b9_e5_ufLOAT => volk.c.VK_FORMAT_E5B9G9R9_UFLOAT_PACK32, // R9_G9_B9_E5_UFLOAT
+        .bc1_rgba_unorm => volk.c.VK_FORMAT_BC1_RGBA_UNORM_BLOCK, // BC1_RGBA_UNORM
+        .bc1_rgba_srgb => volk.c.VK_FORMAT_BC1_RGBA_SRGB_BLOCK, // BC1_RGBA_SRGB
+        .bc2_rgba_unorm => volk.c.VK_FORMAT_BC2_UNORM_BLOCK, // BC2_RGBA_UNORM
+        .bc2_rgba_srgb => volk.c.VK_FORMAT_BC2_SRGB_BLOCK, // BC2_RGBA_SRGB
+        .bc3_rgba_unorm => volk.c.VK_FORMAT_BC3_UNORM_BLOCK, // BC3_RGBA_UNORM
+        .bc3_rgba_srgb => volk.c.VK_FORMAT_BC3_SRGB_BLOCK, // BC3_RGBA_SRGB
+        .bc4_r_unorm => volk.c.VK_FORMAT_BC4_UNORM_BLOCK, // BC4_R_UNORM
+        .bc4_r_snorm => volk.c.VK_FORMAT_BC4_SNORM_BLOCK, // BC4_R_SNORM
+        .bc5_rg_unorm => volk.c.VK_FORMAT_BC5_UNORM_BLOCK, // BC5_RG_UNORM
+        .bc5_rg_snorm => volk.c.VK_FORMAT_BC5_SNORM_BLOCK, // BC5_RG_SNORM
+        .bc6h_rgb_ufloaT => volk.c.VK_FORMAT_BC6H_UFLOAT_BLOCK, // BC6H_RGB_UFLOAT
+        .bc6h_rgb_sfloaT => volk.c.VK_FORMAT_BC6H_SFLOAT_BLOCK, // BC6H_RGB_SFLOAT
+        .bc7_rgba_unorm => volk.c.VK_FORMAT_BC7_UNORM_BLOCK, // BC7_RGBA_UNORM
+        .bc7_rgba_srgb => volk.c.VK_FORMAT_BC7_SRGB_BLOCK, // BC7_RGBA_SRGB
+        .d16_unorm => volk.c.VK_FORMAT_D16_UNORM, // D16_UNORM
+        .d24_unorm_s8_uINT => volk.c.VK_FORMAT_D24_UNORM_S8_UINT, // D24_UNORM_S8_UINT
+        .d32_sfloat => volk.c.VK_FORMAT_D32_SFLOAT, // D32_SFLOAT
+        .d32_sfloat_s8_UINT_X24 => volk.c.VK_FORMAT_D32_SFLOAT_S8_UINT, // D32_SFLOAT_S8_UINT_X24
+        .r24_unorm_x8 => volk.c.VK_FORMAT_D24_UNORM_S8_UINT, // R24_UNORM_X8
+        .x24_g8_uint => volk.c.VK_FORMAT_D24_UNORM_S8_UINT, // X24_G8_UINT
+        .r32_sfloat_x8_X24 => volk.c.VK_FORMAT_D32_SFLOAT_S8_UINT, // R32_SFLOAT_X8_X24
+        .x32_g8_uint_x24 => volk.c.VK_FORMAT_D32_SFLOAT_S8_UINT, // X32_G8_UINT_X24
+        else => volk.c.VK_FORMAT_UNDEFINED,
+    }
+}
 
 pub fn get_props(format: Format) FormatProps {
     switch (format) {
@@ -920,22 +1000,3 @@ pub fn get_props(format: Format) FormatProps {
         else => FormatProps{ .name = "unknown", .format = .unknown },
     }
 }
-
-//fn populate(props: []const FormatProps) b: {
-//    var max = 0;
-//    for (props) |p| {
-//        if (p.format > max) {
-//            max = p.format;
-//        }
-//    }
-//    break :b [max + 1]FormatProps;
-//} {
-//}
-//
-//pub const format_props: []FormatProps= .{
-//  .{}
-//};
-
-//.{
-//    [Format.unknown] = .{.name = "unknown", .format = .unknown}
-//};

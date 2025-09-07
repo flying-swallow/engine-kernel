@@ -11,13 +11,22 @@ const sdl3 = @cImport({
     @cInclude("SDL3/SDL_main.h");
 });
 
+const triangle_verts: [][3]f32 = &.{ 
+    .{ 0.0, -0.5, 0.0 },
+    .{ 0.5, 0.5, 0.0 },
+    .{ -0.5, 0.5, 0.0 },
+}; 
+
 var window: *sdl3.SDL_Window = undefined;
 var allocator: std.mem.Allocator = undefined;
 var renderer: rhi.Renderer = undefined;
 var swapchain: rhi.Swapchain = undefined;
 var device: rhi.Device = undefined;
 var pool: rhi.Pool = undefined;
-var resource_loader: rhi.ResourceLoader(rhi.resource_loader.DefaultResourceConfig) = undefined;
+
+var opaque_layout: rhi.PipelineLayout = undefined;
+var opaque_pass: rhi.GraphicsPipeline = undefined;
+
 const FrameSet = struct {
     cmd: rhi.Cmd
 };
@@ -163,6 +172,41 @@ fn sdlAppInit(appstate: ?*?*anyopaque, argv: [][*:0]u8) !sdl3.SDL_AppResult {
     device = try rhi.Device.init(allocator, &renderer, &adapters.items[selected_adapter_index]);
     swapchain = try rhi.Swapchain.init(allocator, &renderer, &device, 640, 480, &device.graphics_queue, window_handle, .{});
     pool = try rhi.Pool.init(&renderer, &device, &device.graphics_queue);
+    opaque_layout = try rhi.PipelineLayout.init(allocator, &renderer, &device, .{});
+    opaque_pass = try rhi.GraphicsPipeline.init_graphics_pipeline(&renderer, &device, .{
+        .layout = &opaque_layout,
+      //  .render_target_count = 1,
+      //  .render_target_formats = &.{ swapchain.format },
+      //  .depth_stencil_format = null,
+      //  .primitive_topology = .triangle_list,
+      //  .cull_mode = .back,
+      //  .front_face = .clockwise,
+      //  .vertex_input = rhi.VertexInputDesc{
+      //      .attributes = &.{ 
+      //          rhi.VertexAttribute{
+      //              .format = .rgb32_float,
+      //              .offset = 0,
+      //              .binding = 0,
+      //          },
+      //      },
+      //      .bindings = &.{ 
+      //          rhi.VertexBinding{
+      //              .stride = @sizeOf([3]f32),
+      //              .input_rate = .per_vertex,
+      //          },
+      //      },
+      //  },
+      //  .shaders = &.{ 
+      //      .{
+      //          .stage = .vertex,
+      //          .code_spv = includeBytes("../../../assets/spv/opaque.vert.spv"),
+      //      },
+      //      .{
+      //          .stage = .fragment,
+      //          .code_spv = includeBytes("../../../assets/spv/opaque.frag.spv"),
+      //      },
+      //  },
+    });
     {
         var i: usize = 0;
         while (i < frames.len) : (i += 1) {

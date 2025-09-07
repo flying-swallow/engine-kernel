@@ -130,6 +130,3 @@ pub fn vk_has_extension(properties: []const volk.c.VkExtensionProperties, val: [
     return false;
 }
 
-pub fn make_version(major: u32, minor: u32, patch: u32) u32 {
-    return (major << 22) | (minor << 12) | patch;
-}

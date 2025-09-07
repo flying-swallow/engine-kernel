@@ -53,6 +53,7 @@ present_queue: *rhi.Queue,
 width: u16,
 height: u16,
 image_count: u32 = 0,
+format: rhi.Format = .unknown,
 backend: union(rhi.Backend) {
     vk: rhi.wrapper_platform_type(.vk, struct {
         swapchain: volk.c.VkSwapchainKHR = null,

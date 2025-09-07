@@ -44,8 +44,8 @@ pub fn init(alloc: std.mem.Allocator, impl: union(rhi.Backend) {
             var appInfo: volk.c.VkApplicationInfo = .{ .sType = volk.c.VK_STRUCTURE_TYPE_APPLICATION_INFO };
             appInfo.pNext = null;
             appInfo.pApplicationName = opt.app_name;
-            appInfo.applicationVersion = vulkan.make_version(1, 0, 0);
-            appInfo.engineVersion = vulkan.make_version(1, 0, 0);
+            appInfo.applicationVersion = volk.c.VK_MAKE_API_VERSION(1, 0, 0, 0);
+            appInfo.engineVersion = volk.c.VK_MAKE_API_VERSION(1, 0, 0, 0);
             appInfo.apiVersion = volk.c.VK_API_VERSION_1_3;
 
             var validationFeatures = volk.c.VkValidationFeaturesEXT{ .sType = volk.c.VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT };
