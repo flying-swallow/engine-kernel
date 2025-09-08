@@ -10,7 +10,9 @@ pub const Pool = struct {
             queue: *rhi.Queue,
             pool: volk.c.VkCommandPool = null,
         }),
-        dx12: rhi.wrapper_platform_type(.dx12, struct {}),
+        dx12: rhi.wrapper_platform_type(.dx12, struct {
+
+        }),
         mtl: void, // Metal does not use command pools
     },
 

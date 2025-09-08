@@ -53,7 +53,6 @@ present_queue: *rhi.Queue,
 width: u16,
 height: u16,
 image_count: u32 = 0,
-format: rhi.Format = .unknown,
 backend: union(rhi.Backend) {
     vk: rhi.wrapper_platform_type(.vk, struct {
         swapchain: volk.c.VkSwapchainKHR = null,
@@ -69,7 +68,6 @@ backend: union(rhi.Backend) {
 
 
 fn __priority_BT709_G22_16BIT(surface: *const volk.c.VkSurfaceFormatKHR) u32 {
-    
     return (@as(u32,@intFromBool(surface.format == volk.c.VK_FORMAT_R16G16B16A16_SFLOAT))) | 
            (@as(u32,@intFromBool(surface.colorSpace == volk.c.VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT)) << 1);
 }
@@ -220,7 +218,6 @@ pub fn init(allocator: std.mem.Allocator, renderer: *rhi.Renderer, device : *rhi
     };
     var swapchain: volk.c.VkSwapchainKHR = null;
     try vulkan.wrap_err(volk.c.vkCreateSwapchainKHR.?( device.backend.vk.device, &swapchain_create_info, null, &swapchain));
-    
 
     const images = p: {
 		var imageNum: u32= 0;

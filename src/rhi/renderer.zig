@@ -41,12 +41,12 @@ pub fn init(alloc: std.mem.Allocator, impl: union(rhi.Backend) {
         .vk => |opt| {
             try vulkan.wrap_err(volk.c.volkInitialize());
 
-            var appInfo: volk.c.VkApplicationInfo = .{ .sType = volk.c.VK_STRUCTURE_TYPE_APPLICATION_INFO };
-            appInfo.pNext = null;
-            appInfo.pApplicationName = opt.app_name;
-            appInfo.applicationVersion = volk.c.VK_MAKE_API_VERSION(1, 0, 0, 0);
-            appInfo.engineVersion = volk.c.VK_MAKE_API_VERSION(1, 0, 0, 0);
-            appInfo.apiVersion = volk.c.VK_API_VERSION_1_3;
+            var app_info: volk.c.VkApplicationInfo = .{ .sType = volk.c.VK_STRUCTURE_TYPE_APPLICATION_INFO };
+            app_info.pNext = null;
+            app_info.pApplicationName = opt.app_name;
+            app_info.applicationVersion = volk.c.VK_MAKE_API_VERSION(1, 0, 0, 0);
+            app_info.engineVersion = volk.c.VK_MAKE_API_VERSION(1, 0, 0, 0);
+            app_info.apiVersion = volk.c.VK_API_VERSION_1_3;
 
             var validationFeatures = volk.c.VkValidationFeaturesEXT{ .sType = volk.c.VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT };
             const enabledValidationFeatures = [_]volk.c.VkValidationFeatureEnableEXT{volk.c.VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT};
@@ -54,7 +54,7 @@ pub fn init(alloc: std.mem.Allocator, impl: union(rhi.Backend) {
             validationFeatures.pEnabledValidationFeatures = &enabledValidationFeatures;
 
             var instanceCreateInfo = volk.c.VkInstanceCreateInfo{ .sType = volk.c.VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
-            instanceCreateInfo.pApplicationInfo = &appInfo;
+            instanceCreateInfo.pApplicationInfo = &app_info;
             
             var enabled_layer_names = std.ArrayList([*c]const u8).empty;
             defer enabled_layer_names.deinit(alloc);
@@ -145,7 +145,7 @@ pub fn init(alloc: std.mem.Allocator, impl: union(rhi.Backend) {
             return Renderer{ 
                 .backend = .{ 
                     .vk = .{
-                        .api_version = appInfo.apiVersion,
+                        .api_version = app_info.apiVersion,
                         .instance = instance,
                         .debug_message_utils = debug_message_util,
                     } 

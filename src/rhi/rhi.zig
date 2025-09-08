@@ -1,8 +1,8 @@
-const volk = @import("volk");
-const vma = @import("vma");
-const vulkan = @import("vulkan.zig");
 const builtin = @import("builtin");
 
+pub const volk = @import("volk");
+pub const vulkan = @import("vulkan.zig");
+pub const vma = @import("vma");
 pub const format = @import("format.zig");
 pub const renderer = @import("renderer.zig");
 pub const device = @import("device.zig");
@@ -37,68 +37,68 @@ pub const ResourceLoader = resource_loader.ResourceLoader;
 pub const PipelineLayout = pipeline_layout.PipelineLayout;
 pub const GraphicsPipeline = pipeline.GraphicsPipeline;
 
-pub const StageBits = enum(u32) {
-    // Special
-    all = 0, // lazy default for barriers
-    none = 0x7fffffff,
-
-    // graphics                                   // invoked by "cmddraw*"
-    index_input = 1 << 0, //    index buffer consumption
-    vertex_shader = 1 << 1, //    vertex shader
-    tess_control_shader = 1 << 2, //    tessellation control (hull) shader
-    tess_evaluation_shader = 1 << 3, //    tessellation evaluation (domain) shader
-    geometry_shader = 1 << 4, //    geometry shader
-    mesh_control_shader = 1 << 5, //    mesh control (task) shader
-    mesh_evaluation_shader = 1 << 6, //    mesh evaluation (amplification) shader
-    fragment_shader = 1 << 7, //    fragment (pixel) shader
-    depth_stencil_attachment = 1 << 8, //    depth-stencil r/w operations
-    color_attachment = 1 << 9, //    color r/w operations
-
-    // compute                                    // invoked by  "cmddispatch*" (not rays)
-    compute_shader = 1 << 10, //    compute shader
-
-    // ray tracing                                // invoked by "cmddispatchrays*"
-    raygen_shader = 1 << 11, //    ray generation shader
-    miss_shader = 1 << 12, //    miss shader
-    intersection_shader = 1 << 13, //    intersection shader
-    closest_hit_shader = 1 << 14, //    closest hit shader
-    any_hit_shader = 1 << 15, //    any hit shader
-    callable_shader = 1 << 16, //    callable shader
-
-    acceleration_structure = 1 << 17, // invoked by "cmd*accelerationstructure*"
-
-    // copy
-    copy = 1 << 18, // invoked by "cmdcopy*", "cmdupload*" and "cmdreadback*"
-    clear_storage = 1 << 19, // invoked by "cmdclearstorage*"
-    resolve = 1 << 20, // invoked by "cmdresolvetexture"
-
-    // modifiers
-    indirect = 1 << 21, // invoked by "indirect" command (used in addition to other bits)
-
-    // umbrella stages
-    tessellation_shaders = .tess_control_shader | .tess_evaluation_shader,
-    mesh_shaders = .mesh_control_shader | .mesh_evaluation_shader,
-
-    graphics_shaders = .vertex_shader |
-        .tessellation_shaders |
-        .geometry_shader |
-        .mesh_shaders |
-        .fragment_shader,
-
-    // invoked by "cmddispatchrays"
-    ray_tracing_shaders = .raygen_shader |
-        .miss_shader |
-        .intersection_shader |
-        .closest_hit_shader |
-        .any_hit_shader |
-        .callable_shader,
-
-    // invoked by "cmddraw*"
-    draw = .index_input |
-        .graphics_shaders |
-        .depth_stencil_attachment |
-        .color_attachment,
-};
+//pub const StageBits = enum(u32) {
+//    // Special
+//    all = 0, // lazy default for barriers
+//    none = 0x7fffffff,
+//
+//    // graphics                                   // invoked by "cmddraw*"
+//    index_input = 1 << 0, //    index buffer consumption
+//    vertex_shader = 1 << 1, //    vertex shader
+//    tess_control_shader = 1 << 2, //    tessellation control (hull) shader
+//    tess_evaluation_shader = 1 << 3, //    tessellation evaluation (domain) shader
+//    geometry_shader = 1 << 4, //    geometry shader
+//    mesh_control_shader = 1 << 5, //    mesh control (task) shader
+//    mesh_evaluation_shader = 1 << 6, //    mesh evaluation (amplification) shader
+//    fragment_shader = 1 << 7, //    fragment (pixel) shader
+//    depth_stencil_attachment = 1 << 8, //    depth-stencil r/w operations
+//    color_attachment = 1 << 9, //    color r/w operations
+//
+//    // compute                                    // invoked by  "cmddispatch*" (not rays)
+//    compute_shader = 1 << 10, //    compute shader
+//
+//    // ray tracing                                // invoked by "cmddispatchrays*"
+//    raygen_shader = 1 << 11, //    ray generation shader
+//    miss_shader = 1 << 12, //    miss shader
+//    intersection_shader = 1 << 13, //    intersection shader
+//    closest_hit_shader = 1 << 14, //    closest hit shader
+//    any_hit_shader = 1 << 15, //    any hit shader
+//    callable_shader = 1 << 16, //    callable shader
+//
+//    acceleration_structure = 1 << 17, // invoked by "cmd*accelerationstructure*"
+//
+//    // copy
+//    copy = 1 << 18, // invoked by "cmdcopy*", "cmdupload*" and "cmdreadback*"
+//    clear_storage = 1 << 19, // invoked by "cmdclearstorage*"
+//    resolve = 1 << 20, // invoked by "cmdresolvetexture"
+//
+//    // modifiers
+//    indirect = 1 << 21, // invoked by "indirect" command (used in addition to other bits)
+//
+//    // umbrella stages
+//    tessellation_shaders = .tess_control_shader | .tess_evaluation_shader,
+//    mesh_shaders = .mesh_control_shader | .mesh_evaluation_shader,
+//
+//    graphics_shaders = .vertex_shader |
+//        .tessellation_shaders |
+//        .geometry_shader |
+//        .mesh_shaders |
+//        .fragment_shader,
+//
+//    // invoked by "cmddispatchrays"
+//    ray_tracing_shaders = .raygen_shader |
+//        .miss_shader |
+//        .intersection_shader |
+//        .closest_hit_shader |
+//        .any_hit_shader |
+//        .callable_shader,
+//
+//    // invoked by "cmddraw*"
+//    draw = .index_input |
+//        .graphics_shaders |
+//        .depth_stencil_attachment |
+//        .color_attachment,
+//};
 
 
 pub const Selection = enum {

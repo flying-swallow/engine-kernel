@@ -114,9 +114,12 @@ pub fn ResourceLoader(comptime config: ResourceConfig) type {
         }
 
         pub fn flush_copy_group(self: *Self, renderer: *rhi.Renderer, group: *TransferCommandGroup) void {
-            if(group.fence.get_fence_status(self.device, renderer) == .incomplete) {
+            _ = renderer;
+            _ = group;
+            _ = self; 
+            //if(group.fence.get_fence_status(self.device, renderer) == .incomplete) {
               //rhi.Fence.wait_for_fences(1, self.device, renderer, .{group.fence});  
-            }
+            //}
         }
 
         pub fn allocate_stage_memory(self: *Self, renderer: *rhi.Renderer, group: *TransferCommandGroup, size: usize, alignment: usize) !rhi.Buffer.MappedMemoryRange {

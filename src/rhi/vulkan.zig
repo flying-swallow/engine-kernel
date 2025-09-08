@@ -1,5 +1,7 @@
-const volk = @import("volk");
 const std = @import("std");
+const rhi = @import("rhi.zig");
+pub const volk = @import("volk");
+pub const vma = @import("vma");
 
 pub const default_device_extensions = &[_][:0]const u8 {
     volk.c.VK_KHR_SWAPCHAIN_EXTENSION_NAME,
@@ -130,3 +132,19 @@ pub fn vk_has_extension(properties: []const volk.c.VkExtensionProperties, val: [
     return false;
 }
 
+pub fn toShaderBytecode(comptime src: []const u8) [src.len / 4]u32 {
+    var result: [src.len / 4]u32 = undefined;
+    @memcpy(std.mem.sliceAsBytes(result[0..]), src);
+    return result;
+}
+
+pub fn create_embeded_module(spv: []const u32, device: *rhi.Device) !volk.c.VkShaderModule {
+    var create_module: volk.c.VkShaderModule = undefined;
+    var shader_module_create_info = volk.c.VkShaderModuleCreateInfo{ 
+        .sType = volk.c.VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO, 
+        .codeSize = spv.len,
+        .pCode = spv.ptr
+    };
+    try wrap_err(volk.c.vkCreateShaderModule.?(device.backend.vk.device, &shader_module_create_info, null, &create_module));
+    return create_module;
+}

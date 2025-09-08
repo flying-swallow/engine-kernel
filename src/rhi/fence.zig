@@ -65,16 +65,16 @@ pub fn wait_for_fences_alloc(allocator: std.mem.Allocator,device: *rhi.Device, r
     }
 }
 
-pub fn get_fence_status(self: *Fence, device: *rhi.Device, renderer: *rhi.Renderer) !FenceStatus {
-    if (rhi.is_target_selected(.vk, renderer)) {
-        const status = volk.c.vkGetFenceStatus.?(device.backend.vk.device, self.backend.vk.fence);
-        return switch (status) {
-            volk.c.VK_SUCCESS => .complete,
-            volk.c.VK_NOT_READY => .incomplete,
-            else => unreachable, // should be unreachable due to wrap_err
-        };
-    } else if (rhi.is_target_selected(.dx12, renderer)) {
-    } else if (rhi.is_target_selected(.mtl, renderer)) {
-    }
-    return error.UnsupportedBackend;
-}
+//pub fn get_fence_status(self: *Fence, device: *rhi.Device, renderer: *rhi.Renderer) !FenceStatus {
+//    if (rhi.is_target_selected(.vk, renderer)) {
+//        const status = volk.c.vkGetFenceStatus.?(device.backend.vk.device, self.backend.vk.fence);
+//        return switch (status) {
+//            volk.c.VK_SUCCESS => .complete,
+//            volk.c.VK_NOT_READY => .incomplete,
+//            else => unreachable, // should be unreachable due to wrap_err
+//        };
+//    } else if (rhi.is_target_selected(.dx12, renderer)) {
+//    } else if (rhi.is_target_selected(.mtl, renderer)) {
+//    }
+//    return error.UnsupportedBackend;
+//}

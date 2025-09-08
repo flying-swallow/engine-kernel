@@ -34,13 +34,15 @@ pub const DescriptorRangeDesc = struct {
     base_register_index: u32,
     descriptor_num: u32, // treated as max size if "VARIABLE_SIZED_ARRAY" flag is set
     descriptor_type: DescriptorType,
-    shader_stages: rhi.StageBits,
+    shader_stages: u32,
     flags: DescriptorRangeBits,
 };
 
 pub const DynamicConstantBufferDesc = struct {
     register_index: u32,
-    shader_stages: rhi.DescriptorStageBit,
+    shader_stages: union {
+        vk: volk.c.VkShaderStageFlags,    
+    },
 };
 
 pub const DescriptorSetDesc = struct {
@@ -63,7 +65,7 @@ pub fn init(allocator: std.mem.Allocator, renderer: *rhi.Renderer, device: *rhi.
 		var pipeline_layout_create_info = volk.c.VkPipelineLayoutCreateInfo { .sType = volk.c.VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
         var bindings = std.ArrayList(BindingSet).empty;
         defer {
-            for (bindings.items) |b| {
+            for (bindings.items) |*b| {
                 b.descriptor_bindings.deinit(allocator);
                 b.binding_flags.deinit(allocator);
             }
@@ -74,7 +76,7 @@ pub fn init(allocator: std.mem.Allocator, renderer: *rhi.Renderer, device: *rhi.
             register_count = @max(descriptor_set.register_space + 1, register_count);
             for (descriptor_set.ranges) |descriptor_range| {
                 const binding_set: *BindingSet = result: {
-                    for (&bindings.items) |b| {
+                    for (bindings.items) |*b| {
                         if (b.register_index == descriptor_set.register_space) {
                             break :result b;
                         }
@@ -105,19 +107,7 @@ pub fn init(allocator: std.mem.Allocator, renderer: *rhi.Renderer, device: *rhi.
                         .acceleration_structure => volk.c.VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
                     },
                     .descriptorCount = descriptor_range.descriptor_num,
-                    .stageFlags = flags_res: {
-                        var flags: u32 = 0;
-                        if ((descriptor_range.shader_stages & .vertex_shader) != 0) {
-                            flags |= volk.c.VK_SHADER_STAGE_VERTEX_BIT;
-                        }
-                        if ((descriptor_range.shader_stages & .fragment_shader) != 0) {
-                            flags |= volk.c.VK_SHADER_STAGE_FRAGMENT_BIT;
-                        }
-                        if ((descriptor_range.shader_stages & .compute_shader) != 0) {
-                            flags |= volk.c.VK_SHADER_STAGE_COMPUTE_BIT;
-                        }
-                        break :flags_res flags;
-                    },
+                    .stageFlags = descriptor_range.shader_stages, 
                 };
                 try binding_set.descriptor_bindings.append(allocator, layout_binding);
             }
@@ -133,27 +123,30 @@ pub fn init(allocator: std.mem.Allocator, renderer: *rhi.Renderer, device: *rhi.
             var create_layout = volk.c.VkDescriptorSetLayoutCreateInfo{
                 .sType = volk.c.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
             };
-            try vulkan.wrap_err(volk.c.vkCreateDescriptorSetLayout(device.backend.vk.device, &create_layout, null, &empty_layout));
+            try vulkan.wrap_err(volk.c.vkCreateDescriptorSetLayout.?(device.backend.vk.device, &create_layout, null, &empty_layout));
             for(descriptor_set_layouts) |*dsl| dsl.* = empty_layout;
         }
         for(bindings.items) |b| {
 			var binding_flag_info: volk.c.VkDescriptorSetLayoutBindingFlagsCreateInfo = .{ .sType = volk.c.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO };
-			binding_flag_info.bindingCount = b.binding_flags.items.len;
+			binding_flag_info.bindingCount = @intCast(b.binding_flags.items.len);
 			binding_flag_info.pBindingFlags = b.binding_flags.items.ptr;
 
 			var create_layout_info: volk.c.VkDescriptorSetLayoutCreateInfo  = .{ .sType = volk.c.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
-			create_layout_info.bindingCount = b.descriptor_bindings.items.len;
+			create_layout_info.bindingCount = @intCast(b.descriptor_bindings.items.len);
 			create_layout_info.pBindings = b.descriptor_bindings.items.ptr;
 			vulkan.add_next(&create_layout_info, &binding_flag_info);
-            try vulkan.wrap_err(volk.c.vkCreateDescriptorSetLayout(device.backend.vk.device, &create_layout_info, null, &descriptor_set_layouts[b.register_index]));
+            try vulkan.wrap_err(volk.c.vkCreateDescriptorSetLayout.?(device.backend.vk.device, &create_layout_info, null, &descriptor_set_layouts[b.register_index]));
         }
-        pipeline_layout_create_info.pSetLayouts = descriptor_set_layouts;
+        pipeline_layout_create_info.pSetLayouts = descriptor_set_layouts.ptr;
         pipeline_layout_create_info.setLayoutCount = register_count;
         var pipeline_layout: volk.c.VkPipelineLayout = null;
-        try vulkan.wrap_err(volk.c.vkCreatePipelineLayout(device.backend.vk.device, &pipeline_layout_create_info, null, &pipeline_layout));
+        try vulkan.wrap_err(volk.c.vkCreatePipelineLayout.?(device.backend.vk.device, &pipeline_layout_create_info, null, &pipeline_layout));
 
         return .{ .backend = .{ .vk = .{
             .layout = pipeline_layout
         } } };
-    } else if (rhi.is_target_selected(.dx12, renderer)) {} else if (rhi.is_target_selected(.mtl, renderer)) {}
+    } else if (rhi.is_target_selected(.dx12, renderer)) {} else if (rhi.is_target_selected(.mtl, renderer)) {
+
+    }
+    return error.UnsupportedRenderAPI;
 }
