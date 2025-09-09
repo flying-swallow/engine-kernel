@@ -3,11 +3,26 @@ const volk = @import("volk");
 const std = @import("std");
 const vulkan = @import("vulkan.zig");
 
-pub const FilterType = enum(u1) { nearest = 0, linear = 1 };
+pub const FilterType = enum(u1) { 
+    nearest = 0, 
+    linear = 1 
+};
 
-pub const MipMapMode = enum(u1) { nearest = 0, linear = 1 };
+pub const MipMapMode = enum(u1) { 
+    nearest = 0, 
+    linear = 1 
+};
 
-pub const CompareMode = enum(u3) { never = 0, less = 1, equal = 2, less_or_equal = 3, greater = 4, not_equal = 5, greater_or_equal = 6, always = 7 };
+pub const CompareMode = enum(u3) { 
+    never = 0, 
+    less = 1, 
+    equal = 2, 
+    less_or_equal = 3, 
+    greater = 4, 
+    not_equal = 5, 
+    greater_or_equal = 6, 
+    always = 7 
+};
 
 pub const AddressMode = enum(u2) { mirror = 0, repeat = 1, clamp_to_edge = 2, clamp_to_border = 3 };
 

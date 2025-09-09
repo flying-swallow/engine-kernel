@@ -140,6 +140,15 @@ pub fn is_target_selected(comptime api: Backend, ren: *Renderer) bool{
     }
 }
 
+pub fn select(ren: *Renderer ,comptime T: type, pass: T, comptime predicate: fn(comptime target: Backend, val: T) void) void {
+    for (platform_api) |api| {
+        if(ren.backend == api){
+            predicate(api, pass);
+            return;
+        }
+    }
+}
+
 pub fn wrapper_platform_type(api: Backend, comptime impl: type) type{
     if(platform_has_api(api)){
         return impl;

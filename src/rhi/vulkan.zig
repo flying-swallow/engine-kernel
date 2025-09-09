@@ -123,6 +123,21 @@ pub fn debug_utils_messenger( messageSeverity: volk.c.VkDebugUtilsMessageSeverit
 }
 
 
+pub fn determains_aspect_mask(format: volk.c.VkFormat, include_stencil: bool) volk.c.VkImageAspectFlags {
+    return switch (format)
+    {
+        volk.c.VK_FORMAT_D16_UNORM, 
+        volk.c.VK_FORMAT_X8_D24_UNORM_PACK32, 
+        volk.c.VK_FORMAT_D32_SFLOAT => volk.c.VK_IMAGE_ASPECT_DEPTH_BIT,
+        volk.c.VK_FORMAT_S8_UINT => volk.c.VK_IMAGE_ASPECT_STENCIL_BIT,
+        // depth/stencil
+        volk.c.VK_FORMAT_D16_UNORM_S8_UINT, 
+        volk.c.VK_FORMAT_D24_UNORM_S8_UINT, 
+        volk.c.VK_FORMAT_D32_SFLOAT_S8_UINT => @intCast(volk.c.VK_IMAGE_ASPECT_DEPTH_BIT | (if(include_stencil) volk.c.VK_IMAGE_ASPECT_STENCIL_BIT else 0)),
+        else => volk.c.VK_IMAGE_ASPECT_COLOR_BIT
+    };
+}
+
 pub fn vk_has_extension(properties: []const volk.c.VkExtensionProperties, val: []const u8) bool {
     for (properties) |prop| {
         if (std.mem.eql(u8, std.mem.sliceTo(prop.extensionName[0..], 0), val)) {

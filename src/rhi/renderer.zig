@@ -3,18 +3,29 @@ const volk = @import("volk");
 const vulkan = @import("vulkan.zig");
 const std = @import("std");
 const assert = std.debug.assert;
-const builtin = @import("builtin"); 
+const builtin = @import("builtin");
 
 pub const Renderer = @This();
-backend: union(rhi.Backend) { 
-    vk: rhi.wrapper_platform_type(.vk, struct { 
-        api_version: u32, 
-        instance: volk.c.VkInstance, 
-        debug_message_utils: volk.c.VkDebugUtilsMessengerEXT 
-    }), 
-    dx12: rhi.wrapper_platform_type(.dx12, struct {}), 
+backend: union(rhi.Backend) {
+    vk: rhi.wrapper_platform_type(.vk, struct { api_version: u32, instance: volk.c.VkInstance, debug_message_utils: volk.c.VkDebugUtilsMessengerEXT }),
+    dx12: rhi.wrapper_platform_type(.dx12, struct {}),
     mtl: rhi.wrapper_platform_type(.mtl, struct {}),
 },
+
+pub fn target_api(self: *Renderer) rhi.Backend {
+    return switch (self.backend) {
+        .vk and rhi.platform_has_api(.vk) => {
+            return .vk;
+        },
+        .dx12 and rhi.platform_has_api(.dx12) => {
+            return .dx12;
+        },
+        .mtl and rhi.platform_has_api(.mtl) => {
+            return .mtl;
+        },
+        else => unreachable
+    };
+}
 
 pub fn deinit(renderer: *Renderer) void {
     switch (renderer.backend) {
@@ -55,7 +66,7 @@ pub fn init(alloc: std.mem.Allocator, impl: union(rhi.Backend) {
 
             var instanceCreateInfo = volk.c.VkInstanceCreateInfo{ .sType = volk.c.VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
             instanceCreateInfo.pApplicationInfo = &app_info;
-            
+
             var enabled_layer_names = std.ArrayList([*c]const u8).empty;
             defer enabled_layer_names.deinit(alloc);
             var enabled_extension_names = std.ArrayList([*c]const u8).empty;
@@ -75,7 +86,7 @@ pub fn init(alloc: std.mem.Allocator, impl: union(rhi.Backend) {
                 while (i < instanceLayers) : (i += 1) {
                     var useLayer: bool = false;
                     const instanceLayerSlice = std.mem.sliceTo(layerProperties.?[i].layerName[0..], 0);
-                    std.debug.print("Instance Layer: {s}({d}): {s}\n", .{instanceLayerSlice, layerProperties.?[i].specVersion, if(useLayer) "ENABLED" else "DISABLED"});
+                    std.debug.print("Instance Layer: {s}({d}): {s}\n", .{ instanceLayerSlice, layerProperties.?[i].specVersion, if (useLayer) "ENABLED" else "DISABLED" });
                     useLayer |= (opt.enable_validation_layer and std.mem.eql(u8, instanceLayerSlice, "VK_LAYER_KHRONOS_validation"));
                     //if (opt.filterLayers.len > 0) {
                     //    useLayer |= std.mem.indexOf(u8, opt.filterLayers, layerProperties.?[i].layerName) != null;
@@ -108,7 +119,7 @@ pub fn init(alloc: std.mem.Allocator, impl: union(rhi.Backend) {
                     useExtension |= std.mem.eql(u8, extensionSlice, volk.c.VK_KHR_SURFACE_EXTENSION_NAME);
                     useExtension |= std.mem.eql(u8, extensionSlice, volk.c.VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME);
                     useExtension |= std.mem.eql(u8, extensionSlice, volk.c.VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-                    std.debug.print("Instance Extension: {s}({d}): {s}\n", .{extensionSlice, extProperties.?[i].specVersion, if(useExtension) "ENABLED" else "DISABLED"});
+                    std.debug.print("Instance Extension: {s}({d}): {s}\n", .{ extensionSlice, extProperties.?[i].specVersion, if (useExtension) "ENABLED" else "DISABLED" });
                     if (useExtension) {
                         try enabled_extension_names.append(alloc, extProperties.?[i].extensionName[0..].ptr);
                     }
@@ -119,38 +130,34 @@ pub fn init(alloc: std.mem.Allocator, impl: union(rhi.Backend) {
             instanceCreateInfo.ppEnabledExtensionNames = enabled_extension_names.items.ptr;
             instanceCreateInfo.enabledExtensionCount = @intCast(enabled_extension_names.items.len);
 
-            if(impl.vk.enable_validation_layer) {
+            if (impl.vk.enable_validation_layer) {
                 vulkan.add_next(&instanceCreateInfo, &validationFeatures);
             }
             var instance: volk.c.VkInstance = undefined;
             try vulkan.wrap_err(volk.c.vkCreateInstance.?(&instanceCreateInfo, null, &instance));
             volk.c.volkLoadInstance(instance);
             var debug_message_util: volk.c.VkDebugUtilsMessengerEXT = null;
-            if(impl.vk.enable_validation_layer and volk.c.vkCreateDebugUtilsMessengerEXT != null) {
+            if (impl.vk.enable_validation_layer and volk.c.vkCreateDebugUtilsMessengerEXT != null) {
                 var debug_create_info = volk.c.VkDebugUtilsMessengerCreateInfoEXT{ .sType = volk.c.VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT };
                 debug_create_info.pfnUserCallback = &vulkan.debug_utils_messenger;
                 debug_create_info.pUserData = null;
-                debug_create_info.messageSeverity = volk.c.VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | 
-                                                  volk.c.VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
-                                                  volk.c.VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | 
-                                                  volk.c.VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-                debug_create_info.messageType = 
-                    volk.c.VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | 
-                    volk.c.VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | 
+                debug_create_info.messageSeverity = volk.c.VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+                    volk.c.VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
+                    volk.c.VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+                    volk.c.VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+                debug_create_info.messageType =
+                    volk.c.VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+                    volk.c.VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
                     volk.c.VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
 
                 try vulkan.wrap_err(volk.c.vkCreateDebugUtilsMessengerEXT.?(instance, &debug_create_info, null, &debug_message_util));
             }
 
-            return Renderer{ 
-                .backend = .{ 
-                    .vk = .{
-                        .api_version = app_info.apiVersion,
-                        .instance = instance,
-                        .debug_message_utils = debug_message_util,
-                    } 
-                } 
-            };
+            return Renderer{ .backend = .{ .vk = .{
+                .api_version = app_info.apiVersion,
+                .instance = instance,
+                .debug_message_utils = debug_message_util,
+            } } };
         },
         .dx12 => {
             if (rhi.platform_has_api(.dx12)) {

@@ -10,7 +10,7 @@ tocks_per_s: u64,
 accumulated_ticks: u64 = 0,
 previous_timestamp: ?u64 = null,
 
-fn consume(step: *TimeStep ) bool {
+pub fn consume(step: *TimeStep ) bool {
     const ticks_per_s: u64 = step.tocks_per_s * ticks_per_tock;
     const ticks_per_update: u64 = @divExact(ticks_per_s, updates_per_s);
     if (step.accumulated_ticks >= ticks_per_update) {
@@ -21,7 +21,7 @@ fn consume(step: *TimeStep ) bool {
     }
 }
 
-fn produce(step: *TimeStep, current_timestamp: u64) void {
+pub fn produce(step: *TimeStep, current_timestamp: u64) void {
     if (step.previous_timestamp) |previous_timestamp| {
         const ticks_per_s: u64 = step.tocks_per_s * ticks_per_tock;
         const elapsed_ticks: u64 = (current_timestamp -% previous_timestamp) *| ticks_per_tock;
