@@ -25,6 +25,19 @@ pub const AdapterType = enum(u8) {
 };
 
 pub const PhysicalAdapter = @This();
+backend: union {
+    vk: rhi.wrapper_platform_type(.vk, struct {
+        physical_device: volk.c.VkPhysicalDevice = null,
+        api_version: u32 = 0,
+        is_swap_chain_supported: bool = false,
+        is_buffer_device_address_supported: bool = false,
+        is_amd_device_coherent_memory_supported: bool = false,
+        is_present_id_supported: bool = false,
+        is_maintenance5_supported: bool = false,
+    }),
+    dx12: rhi.wrapper_platform_type(.dx12, struct {}),
+    mtl: rhi.wrapper_platform_type(.mtl, struct {}),
+},
 name: [256]u8 = std.mem.zeroes([256]u8),
 luid: u64 = 0,
 video_memory_size: u64 = 0,
@@ -187,20 +200,6 @@ is_shader_atomics_i64_supported: bool = false,
 // Emulated features
 is_draw_parameters_emulation_enabled: bool = false,
 
-// API-specific fields
-backend: union(rhi.Backend) {
-    vk: rhi.wrapper_platform_type(.vk, struct {
-        physical_device: volk.c.VkPhysicalDevice = std.mem.zeroes(volk.c.VkPhysicalDevice),
-        api_version: u32 = 0,
-        is_swap_chain_supported: bool = false,
-        is_buffer_device_address_supported: bool = false,
-        is_amd_device_coherent_memory_supported: bool = false,
-        is_present_id_supported: bool = false,
-        is_maintenance5_supported: bool = false,
-    }),
-    dx12: rhi.wrapper_platform_type(.dx12, struct {}),
-    mtl: rhi.wrapper_platform_type(.mtl, struct {}),
-} = undefined,
 
 
 pub fn enumerate_adapters(allocator: std.mem.Allocator, renderer: *rhi.Renderer) !std.ArrayList(PhysicalAdapter) {
@@ -210,6 +209,11 @@ pub fn enumerate_adapters(allocator: std.mem.Allocator, renderer: *rhi.Renderer)
         var deviceGroupsCount: u32 = 0;
         try vulkan.wrap_err(volk.c.vkEnumeratePhysicalDeviceGroups.?(renderer.backend.vk.instance, &deviceGroupsCount, null));
         const physicalDeviceProperties = try allocator.alloc(volk.c.VkPhysicalDeviceGroupProperties, deviceGroupsCount);
+        for(physicalDeviceProperties) |*p| {
+            p.* = .{
+                .sType = volk.c.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GROUP_PROPERTIES
+            };
+        }
         defer allocator.free(physicalDeviceProperties);
         try vulkan.wrap_err(volk.c.vkEnumeratePhysicalDeviceGroups.?(renderer.backend.vk.instance, &deviceGroupsCount, physicalDeviceProperties.ptr));
         var i: usize = 0;
@@ -261,9 +265,10 @@ pub fn enumerate_adapters(allocator: std.mem.Allocator, renderer: *rhi.Renderer)
                     0x8086 => .intel,
                     else => .unknown,
                 },
-                .backend = .{ .vk = .{ 
+                .backend = .{ 
+                    .vk = .{ 
                         .api_version = properties.properties.apiVersion, 
-                        .physical_device = physicalDeviceProperties[i].physicalDevices[0], 
+                        .physical_device = physical_device, 
                         .is_present_id_supported = present_id_features.presentId > 0, 
                         .is_swap_chain_supported = vulkan.vk_has_extension(extension_properties, volk.c.VK_KHR_SWAPCHAIN_EXTENSION_NAME), 
                         .is_buffer_device_address_supported = properties.properties.apiVersion >= volk.c.VK_API_VERSION_1_2 or vulkan.vk_has_extension(extension_properties, volk.c.VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME), 

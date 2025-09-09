@@ -13,7 +13,7 @@ pub fn build(b: *std.Build) void {
     const module = b.addModule("vma", .{ .root_source_file = b.path("main.zig") });
     module.addIncludePath(upstream.path(""));
 
-    const commonArgs = &[_][]const u8 { "-std=c++14" };
+    const commonArgs = &[_][]const u8 { "-std=c++17" };
     //const releaseArgs = &[_][]const u8 { } ++ commonArgs ++ comptime getConfigArgs(vma_config.releaseConfig);
     //const debugArgs = &[_][]const u8 { } ++ commonArgs ++ comptime getConfigArgs(vma_config.debugConfig);
     //const args = if (mode == .Debug) debugArgs else releaseArgs;

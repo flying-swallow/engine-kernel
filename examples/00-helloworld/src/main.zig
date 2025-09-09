@@ -28,13 +28,13 @@ var timekeeper: enginekit.TimeKeeper = undefined;
 //const CommandBufferCount: usize = 2;
 
 var opaque_layout: rhi.PipelineLayout = undefined;
-var opaque_pass: rhi.GraphicsPipeline = undefined;
+//var opaque_pass: rhi.GraphicsPipeline = undefined;
 
 pub const CmdRingBuffer = rhi.Cmd.CommandRingBuffer(.{
     .pool_count = 4,
     .sync_primative = true
 });
-var cmd_ring: CmdRingBuffer = undefined;
+var graphics_cmd_ring: CmdRingBuffer = undefined;
 //var cmds: [CommandBufferCount]rhi.Cmd = undefined;
 //var cmd_index: usize = 0;
 
@@ -137,7 +137,7 @@ fn sdlAppInit(appstate: ?*?*anyopaque, argv: [][*:0]u8) !sdl3.SDL_AppResult {
             if (std.mem.eql(u8, std.mem.sliceTo(sdl3.SDL_GetCurrentVideoDriver(), 0), "x11")) {
                 break :p rhi.WindowHandle{ .x11 = .{
                     .display = sdl3.SDL_GetPointerProperty(sdl3.SDL_GetWindowProperties(window), sdl3.SDL_PROP_WINDOW_X11_DISPLAY_POINTER, null).?,
-                    .window = @intFromPtr(sdl3.SDL_GetPointerProperty(sdl3.SDL_GetWindowProperties(window), sdl3.SDL_PROP_WINDOW_X11_WINDOW_NUMBER, null).?),
+                    .window = @intCast(sdl3.SDL_GetNumberProperty(sdl3.SDL_GetWindowProperties(window), sdl3.SDL_PROP_WINDOW_X11_WINDOW_NUMBER, 0)),
                 } };
             } else if (std.mem.eql(u8, std.mem.sliceTo(sdl3.SDL_GetCurrentVideoDriver(), 0), "wayland")) {
                 break :p rhi.WindowHandle{ .wayland = .{ .display = sdl3.SDL_GetPointerProperty(sdl3.SDL_GetWindowProperties(window), sdl3.SDL_PROP_WINDOW_WAYLAND_DISPLAY_POINTER, null).?, .surface = sdl3.SDL_GetPointerProperty(sdl3.SDL_GetWindowProperties(window), sdl3.SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, null).?, .shell_surface = null } };
@@ -168,70 +168,66 @@ fn sdlAppInit(appstate: ?*?*anyopaque, argv: [][*:0]u8) !sdl3.SDL_AppResult {
     }
     device = try rhi.Device.init(allocator, &renderer, &adapters.items[selected_adapter_index]);
     swapchain = try rhi.Swapchain.init(allocator, &renderer, &device, 640, 480, &device.graphics_queue, window_handle, .{});
-    //pool = try rhi.Pool.init(&renderer, &device, &device.graphics_queue);
     opaque_layout = try rhi.PipelineLayout.init(allocator, &renderer, &device, .{});
 
-    opaque_pass = .{ .backend = .{ .vk = .{ .pipeline = p: {
-        const vert_spv = rhi.vulkan.toShaderBytecode(@embedFile("spv/opaque.vert.spv"));
-        const frag_spv = rhi.vulkan.toShaderBytecode(@embedFile("spv/opaque.frag.spv"));
+    //opaque_pass = .{ .backend = .{ .vk = .{ .pipeline = p: {
+    //    const vert_spv = rhi.vulkan.toShaderBytecode(@embedFile("spv/opaque.vert.spv"));
+    //    const frag_spv = rhi.vulkan.toShaderBytecode(@embedFile("spv/opaque.frag.spv"));
 
-        const opauqe_vert = try rhi.vulkan.create_embeded_module(&vert_spv, &device);
-        defer rhi.volk.c.vkDestroyShaderModule.?(device.backend.vk.device, opauqe_vert, null);
-        const opaque_frag = try rhi.vulkan.create_embeded_module(&frag_spv, &device);
-        defer rhi.volk.c.vkDestroyShaderModule.?(device.backend.vk.device, opaque_frag, null);
+    //    const opauqe_vert = try rhi.vulkan.create_embeded_module(&vert_spv, &device);
+    //    defer rhi.volk.c.vkDestroyShaderModule.?(device.backend.vk.device, opauqe_vert, null);
+    //    const opaque_frag = try rhi.vulkan.create_embeded_module(&frag_spv, &device);
+    //    defer rhi.volk.c.vkDestroyShaderModule.?(device.backend.vk.device, opaque_frag, null);
 
-        var colorAttachments = rhi.volk.c.VkPipelineColorBlendAttachmentState{ .blendEnable = rhi.volk.c.VK_FALSE };
-        var colorBlendState = rhi.volk.c.VkPipelineColorBlendStateCreateInfo{
-            .sType = rhi.volk.c.VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-            .pAttachments = &colorAttachments,
-            .attachmentCount = 1,
-        };
-        var viewportState = rhi.volk.c.VkPipelineViewportStateCreateInfo{
-            .sType = rhi.volk.c.VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-            .viewportCount = 1,
-        };
+    //    var colorAttachments = rhi.volk.c.VkPipelineColorBlendAttachmentState{ .blendEnable = rhi.volk.c.VK_FALSE };
+    //    var colorBlendState = rhi.volk.c.VkPipelineColorBlendStateCreateInfo{
+    //        .sType = rhi.volk.c.VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+    //        .pAttachments = &colorAttachments,
+    //        .attachmentCount = 1,
+    //    };
+    //    var viewportState = rhi.volk.c.VkPipelineViewportStateCreateInfo{
+    //        .sType = rhi.volk.c.VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+    //        .viewportCount = 1,
+    //    };
 
-        const shader_modules = [_]rhi.volk.c.VkPipelineShaderStageCreateInfo{
-            .{
-                .sType = rhi.volk.c.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-                .stage = rhi.volk.c.VK_SHADER_STAGE_VERTEX_BIT,
-                .module = opauqe_vert,
-                .pName = "main",
-            },
-            .{
-                .sType = rhi.volk.c.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-                .stage = rhi.volk.c.VK_SHADER_STAGE_FRAGMENT_BIT,
-                .module = opaque_frag,
-                .pName = "main",
-            },
-        };
+    //    const shader_modules = [_]rhi.volk.c.VkPipelineShaderStageCreateInfo{
+    //        .{
+    //            .sType = rhi.volk.c.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+    //            .stage = rhi.volk.c.VK_SHADER_STAGE_VERTEX_BIT,
+    //            .module = opauqe_vert,
+    //            .pName = "main",
+    //        },
+    //        .{
+    //            .sType = rhi.volk.c.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+    //            .stage = rhi.volk.c.VK_SHADER_STAGE_FRAGMENT_BIT,
+    //            .module = opaque_frag,
+    //            .pName = "main",
+    //        },
+    //    };
 
-        var rasterizationState = rhi.volk.c.VkPipelineRasterizationStateCreateInfo{ .sType = rhi.volk.c.VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO, .polygonMode = rhi.volk.c.VK_POLYGON_MODE_FILL, .cullMode = rhi.volk.c.VK_CULL_MODE_NONE, .frontFace = rhi.volk.c.VK_FRONT_FACE_COUNTER_CLOCKWISE, .lineWidth = 1.0 };
+    //    var rasterizationState = rhi.volk.c.VkPipelineRasterizationStateCreateInfo{ .sType = rhi.volk.c.VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO, .polygonMode = rhi.volk.c.VK_POLYGON_MODE_FILL, .cullMode = rhi.volk.c.VK_CULL_MODE_NONE, .frontFace = rhi.volk.c.VK_FRONT_FACE_COUNTER_CLOCKWISE, .lineWidth = 1.0 };
 
-        var multisampleState = rhi.volk.c.VkPipelineMultisampleStateCreateInfo{ .sType = rhi.volk.c.VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO, .rasterizationSamples = rhi.volk.c.VK_SAMPLE_COUNT_1_BIT };
-        const vertextbindingDesc = [_]rhi.volk.c.VkVertexInputAttributeDescription{.{ .format = rhi.format.to_vk_format(rhi.Format.rgb32_sfloat), .location = 0, .offset = 0 }};
-        const vertexInputStreamDesc = [_]rhi.volk.c.VkVertexInputBindingDescription{.{ .binding = 0, .stride = @sizeOf(f32) * 3, .inputRate = rhi.volk.c.VK_VERTEX_INPUT_RATE_VERTEX }};
-        const vertexInputState = rhi.volk.c.VkPipelineVertexInputStateCreateInfo{ .sType = rhi.volk.c.VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO, .vertexAttributeDescriptionCount = vertextbindingDesc.len, .pVertexAttributeDescriptions = vertextbindingDesc[0..].ptr, .vertexBindingDescriptionCount = vertexInputStreamDesc.len, .pVertexBindingDescriptions = vertexInputStreamDesc[0..].ptr };
-        var pipeline_create_info = rhi.volk.c.VkGraphicsPipelineCreateInfo{
-            .sType = rhi.volk.c.VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-            .pViewportState = &viewportState,
-            .pColorBlendState = &colorBlendState,
-            .pStages = shader_modules[0..].ptr,
-            .stageCount = shader_modules.len,
-            .layout = opaque_layout.backend.vk.layout,
-            .pMultisampleState = &multisampleState,
-            .pRasterizationState = &rasterizationState,
-            .pVertexInputState = &vertexInputState,
-        };
-        var res: rhi.volk.c.VkPipeline = undefined;
-        try rhi.vulkan.wrap_err(rhi.volk.c.vkCreateGraphicsPipelines.?(device.backend.vk.device, null, 1, &pipeline_create_info, null, &res));
-        break :p res;
-    } } } };
+    //    var multisampleState = rhi.volk.c.VkPipelineMultisampleStateCreateInfo{ .sType = rhi.volk.c.VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO, .rasterizationSamples = rhi.volk.c.VK_SAMPLE_COUNT_1_BIT };
+    //    const vertextbindingDesc = [_]rhi.volk.c.VkVertexInputAttributeDescription{.{ .format = rhi.format.to_vk_format(rhi.Format.rgb32_sfloat), .location = 0, .offset = 0 }};
+    //    const vertexInputStreamDesc = [_]rhi.volk.c.VkVertexInputBindingDescription{.{ .binding = 0, .stride = @sizeOf(f32) * 3, .inputRate = rhi.volk.c.VK_VERTEX_INPUT_RATE_VERTEX }};
+    //    const vertexInputState = rhi.volk.c.VkPipelineVertexInputStateCreateInfo{ .sType = rhi.volk.c.VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO, .vertexAttributeDescriptionCount = vertextbindingDesc.len, .pVertexAttributeDescriptions = vertextbindingDesc[0..].ptr, .vertexBindingDescriptionCount = vertexInputStreamDesc.len, .pVertexBindingDescriptions = vertexInputStreamDesc[0..].ptr };
+    //    var pipeline_create_info = rhi.volk.c.VkGraphicsPipelineCreateInfo{
+    //        .sType = rhi.volk.c.VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+    //        .pViewportState = &viewportState,
+    //        .pColorBlendState = &colorBlendState,
+    //        .pStages = shader_modules[0..].ptr,
+    //        .stageCount = shader_modules.len,
+    //        .layout = opaque_layout.backend.vk.layout,
+    //        .pMultisampleState = &multisampleState,
+    //        .pRasterizationState = &rasterizationState,
+    //        .pVertexInputState = &vertexInputState,
+    //    };
+    //    var res: rhi.volk.c.VkPipeline = undefined;
+    //    try rhi.vulkan.wrap_err(rhi.volk.c.vkCreateGraphicsPipelines.?(device.backend.vk.device, null, 1, &pipeline_create_info, null, &res));
+    //    break :p res;
+    //} } } };
 
-    cmd_ring = try CmdRingBuffer.init(&renderer, &device, &device.graphics_queue); 
-    //for(&cmds) |*cmd| {
-    //    cmd.* = try rhi.Cmd.init(&renderer, &device, &pool);
-    //}
+    graphics_cmd_ring = try CmdRingBuffer.init(&renderer, &device, &device.graphics_queue); 
 
     return sdl3.SDL_APP_CONTINUE;
 }
@@ -246,14 +242,20 @@ fn sdlAppIterate(appstate: ?*anyopaque) !sdl3.SDL_AppResult {
     _ = appstate;
 
     while(timekeeper.consume()) {
-        //cmd_index = (cmd_index + 1) % cmds.len;
+        graphics_cmd_ring.advance();
         const swapchain_index = try swapchain.acquire_next_image(&renderer, &device, .{
             .vk = .{ .fence = null },
             .dx12 = null,
             .mtl = null,
         });
 
-        try cmds[cmd_index].begin(&renderer);
+        var ring_element = graphics_cmd_ring.get(&renderer, 1);
+        try ring_element.wait(&renderer, &device); // Wait for the GPU to finish with this command buffer
+        
+        try ring_element.pool.reset(&renderer, &device); // Reset the pool (which also resets the command buffers)
+
+
+        try ring_element.cmds[0].begin(&renderer);
         if (rhi.is_target_selected(.vk, &renderer)) {
             const img = swapchain.image(&renderer, swapchain_index);
             const image_view = swapchain.image_view(&renderer, swapchain_index);
@@ -284,7 +286,7 @@ fn sdlAppIterate(appstate: ?*anyopaque) !sdl3.SDL_AppResult {
                     .imageMemoryBarrierCount = barriers.len,
                     .pImageMemoryBarriers = &barriers[0],
                 };
-                rhi.volk.c.vkCmdPipelineBarrier2.?(cmds[cmd_index].backend.vk.cmd, &dependency_info);
+                rhi.volk.c.vkCmdPipelineBarrier2.?(ring_element.cmds[0].backend.vk.cmd, &dependency_info);
             }
             {
                 var color_attachment = [_]rhi.volk.c.VkRenderingAttachmentInfo{
@@ -307,7 +309,7 @@ fn sdlAppIterate(appstate: ?*anyopaque) !sdl3.SDL_AppResult {
                     .colorAttachmentCount = 1,
                     .pColorAttachments = &color_attachment,
                 };
-                rhi.volk.c.vkCmdBeginRendering.?(cmds[cmd_index].backend.vk.cmd, &rending_info);
+                rhi.volk.c.vkCmdBeginRendering.?(ring_element.cmds[0].backend.vk.cmd, &rending_info);
             }
             {
 
@@ -328,37 +330,38 @@ fn sdlAppIterate(appstate: ?*anyopaque) !sdl3.SDL_AppResult {
                         .clearValue = .{ .color = .{ .float32 = [4]f32{ 0.0, 0.0, 0.0, 1.0 } } },
                     }
                 };
-                rhi.volk.c.vkCmdClearAttachments.?(cmds[cmd_index].backend.vk.cmd, @intCast(clearAttachment.len), clearAttachment[0..].ptr, @intCast(clearRect.len), clearRect[0..].ptr);
+                rhi.volk.c.vkCmdClearAttachments.?(ring_element.cmds[0].backend.vk.cmd, @intCast(clearAttachment.len), clearAttachment[0..].ptr, @intCast(clearRect.len), clearRect[0..].ptr);
             }
-            rhi.volk.c.vkCmdEndRendering.?(cmds[cmd_index].backend.vk.cmd);
-           
-            
-
+            rhi.volk.c.vkCmdEndRendering.?(ring_element.cmds[0].backend.vk.cmd);
         }
-        try cmds[cmd_index].end(&renderer);
+        try ring_element.cmds[0].end(&renderer);
 
         if(rhi.is_target_selected(.vk, &renderer)) {
-            var imageAcquireSemaphore = [_]rhi.volk.c.VkSemaphore{swapchain.backend.vk.signal_semaphore};
-            var waitMask = [_]rhi.volk.c.VkPipelineStageFlagBits{rhi.volk.c.VK_PIPELINE_STAGE_ALL_COMMANDS_BIT};
-
+            const imageAcquireSemaphore = [_]rhi.volk.c.VkSemaphore{swapchain.backend.vk.signal_semaphore};
+            const waitMask = [_]rhi.volk.c.VkPipelineStageFlagBits{rhi.volk.c.VK_PIPELINE_STAGE_ALL_COMMANDS_BIT};
+            
+            const signal_semaphore = [_]rhi.volk.c.VkSemaphore{ring_element.backend.vk.semaphore.?};
+            const cmds = [_]rhi.volk.c.VkCommandBuffer{ring_element.cmds[0].backend.vk.cmd};
             var submit_info = rhi.volk.c.VkSubmitInfo{
                 .sType = rhi.volk.c.VK_STRUCTURE_TYPE_SUBMIT_INFO,
-                .commandBufferCount = 1,
-                .pCommandBuffers = &cmds[cmd_index].backend.vk.cmd,
-                .pWaitDstStageMask = waitMask[0..].ptr,
+                .commandBufferCount = cmds.len,
+                .pCommandBuffers = cmds[0..].ptr,
+                
                 .waitSemaphoreCount = imageAcquireSemaphore.len,
+                .pWaitDstStageMask = waitMask[0..].ptr,
                 .pWaitSemaphores = imageAcquireSemaphore[0..].ptr,
-                .pSignalSemaphores = null,
-                .signalSemaphoreCount = 0,
+
+                .pSignalSemaphores = signal_semaphore[0..].ptr,
+                .signalSemaphoreCount = signal_semaphore.len,
             };
-            try rhi.vulkan.wrap_err(rhi.volk.c.vkQueueSubmit.?(device.graphics_queue.backend.vk.queue, 1, &submit_info, null));
+            try rhi.vulkan.wrap_err(rhi.volk.c.vkQueueSubmit.?(device.graphics_queue.backend.vk.queue, 1, &submit_info, ring_element.backend.vk.fence.?));
             var present_info = rhi.volk.c.VkPresentInfoKHR{
                 .sType = rhi.volk.c.VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
                 .swapchainCount = 1,
                 .pSwapchains = &swapchain.backend.vk.swapchain,
                 .pImageIndices = &swapchain_index,
             };
-            _ = rhi.vulkan.wrap_err(rhi.volk.c.vkQueuePresentKHR.?(device.graphics_queue.backend.vk.queue, &present_info));
+            try rhi.vulkan.wrap_err(rhi.volk.c.vkQueuePresentKHR.?(device.graphics_queue.backend.vk.queue, &present_info));
         }
 
     }

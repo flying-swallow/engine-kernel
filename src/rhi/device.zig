@@ -23,9 +23,9 @@ backend: union {
     mtl: rhi.wrapper_platform_type(.mtl, struct {}),
 } = undefined,
 
-fn supports_extension(extensions: [][:0]const u8, value: []const u8) bool {
+fn supports_extension(extensions: [][*c]const u8, value: []const u8) bool {
     for (extensions) |ext| {
-        if (std.mem.eql(u8, ext, value)) {
+        if (std.mem.eql(u8, std.mem.sliceTo(ext, 0), value)) {
             return true;
         }
     }
@@ -39,11 +39,11 @@ pub fn init(allocator: std.mem.Allocator, renderer: *rhi.Renderer, adapter: *rhi
         const extension_properties: []volk.c.VkExtensionProperties = try allocator.alloc(volk.c.VkExtensionProperties, extension_num);
         defer allocator.free(extension_properties);
         try vulkan.wrap_err(volk.c.vkEnumerateDeviceExtensionProperties.?(adapter.backend.vk.physical_device, null, &extension_num, extension_properties.ptr));
-        var enabled_extension_names = std.ArrayList([:0]const u8).empty;
+        var enabled_extension_names = std.ArrayList([*c]const u8).empty;
         defer enabled_extension_names.deinit(allocator);
 
         for (vulkan.default_device_extensions) |default_ext| {
-            if (vulkan.vk_has_extension(extension_properties, default_ext)) {
+            if (vulkan.vk_has_extension(extension_properties, std.mem.sliceTo(default_ext, 0))) {
                 try enabled_extension_names.append(allocator, default_ext);
             }
         }
@@ -101,7 +101,6 @@ pub fn init(allocator: std.mem.Allocator, renderer: *rhi.Renderer, adapter: *rhi
             var best_queue_family_idx: u32 = 0;
             var family_idx: u32 = 0;
             while (family_idx < queue_family_props.len) : (family_idx += 1) {
-
                 // slot zero is the graphics queue
                 if (config_idx == 0 and (config.required_bits & queue_family_props[family_idx].queueFlags) == config.required_bits) {
                     best_queue_family_idx = family_idx;
@@ -222,12 +221,14 @@ pub fn init(allocator: std.mem.Allocator, renderer: *rhi.Renderer, adapter: *rhi
             vulkan.add_next(&features, &line_rasterization_features);
         }
         volk.c.vkGetPhysicalDeviceFeatures2.?(adapter.backend.vk.physical_device, &features);
-        var device_create_info: volk.c.VkDeviceCreateInfo = .{ .sType = volk.c.VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
-        device_create_info.pNext = &features;
-        device_create_info.pQueueCreateInfos = device_queue_create_info.items.ptr;
-        device_create_info.queueCreateInfoCount = @intCast(device_queue_create_info.items.len);
-        device_create_info.enabledExtensionCount = @intCast(enabled_extension_names.items.len);
-        device_create_info.ppEnabledExtensionNames = @ptrCast(enabled_extension_names.items.ptr);
+        var device_create_info: volk.c.VkDeviceCreateInfo = .{
+            .sType = volk.c.VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, 
+            .pNext = &features,
+            .pQueueCreateInfos = device_queue_create_info.items.ptr,
+            .queueCreateInfoCount = @intCast(device_queue_create_info.items.len),
+            .ppEnabledExtensionNames = enabled_extension_names.items.ptr,
+            .enabledExtensionCount = @intCast(enabled_extension_names.items.len)
+        };
         var device: volk.c.VkDevice = null;
         try vulkan.wrap_err(volk.c.vkCreateDevice.?(adapter.backend.vk.physical_device, &device_create_info, null, &device));
 

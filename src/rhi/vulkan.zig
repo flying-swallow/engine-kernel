@@ -3,7 +3,7 @@ const rhi = @import("rhi.zig");
 pub const volk = @import("volk");
 pub const vma = @import("vma");
 
-pub const default_device_extensions = &[_][:0]const u8 {
+pub const default_device_extensions = &[_][*c]const u8 {
     volk.c.VK_KHR_SWAPCHAIN_EXTENSION_NAME,
     volk.c.VK_KHR_MAINTENANCE1_EXTENSION_NAME,
     volk.c.VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME,

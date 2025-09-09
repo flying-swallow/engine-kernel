@@ -151,12 +151,11 @@ pub fn init(allocator: std.mem.Allocator, renderer: *rhi.Renderer, device: *rhi.
             .x11 => |val| {
                 var xlib_surface_create: volk.c.VkXlibSurfaceCreateInfoKHR = .{
                     .sType = volk.c.VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
-                    .flags = 0,
                     .dpy = @ptrCast(val.display),
                     .window = val.window,
                 };
                 var surface: volk.c.VkSurfaceKHR = undefined;
-                try vulkan.wrap_err(volk.c.vkCreateXlibSurfaceKHR.?(renderer.*.backend.vk.instance, &xlib_surface_create, null, &surface));
+                try vulkan.wrap_err(volk.c.vkCreateXlibSurfaceKHR.?(renderer.backend.vk.instance, &xlib_surface_create, null, &surface));
                 break :p surface;
             },
             .wayland => |val| {
@@ -166,7 +165,7 @@ pub fn init(allocator: std.mem.Allocator, renderer: *rhi.Renderer, device: *rhi.
                     .surface = @ptrCast(val.surface),
                 };
                 var surface: volk.c.VkSurfaceKHR = undefined;
-                try vulkan.wrap_err(volk.c.vkCreateWaylandSurfaceKHR.?(renderer.*.backend.vk.instance, &wayland_surface_create, null, &surface));
+                try vulkan.wrap_err(volk.c.vkCreateWaylandSurfaceKHR.?(renderer.backend.vk.instance, &wayland_surface_create, null, &surface));
                 break :p surface;
             },
         }

@@ -147,6 +147,14 @@ pub const Pool = struct {
         mtl: void, // Metal does not use command pools
     },
 
+    pub fn reset(self: *Self, renderer: *rhi.Renderer, device: *rhi.Device) !void {
+        if (rhi.is_target_selected(.vk, renderer)) {
+            try vulkan.wrap_err(volk.c.vkResetCommandPool.?(device.backend.vk.device, self.backend.vk.pool, 0));
+            return;
+        } else if (rhi.is_target_selected(.dx12, renderer)) {} else if (rhi.is_target_selected(.mtl, renderer)) {}
+        unreachable;
+    }
+
     pub fn init(renderer: *rhi.Renderer, device: *rhi.Device, queue: *rhi.Queue) !Self {
         if (rhi.is_target_selected(.vk, renderer)) {
             var cmd_pool_create_info = volk.c.VkCommandPoolCreateInfo{
@@ -165,15 +173,27 @@ pub const Pool = struct {
     }
 };
 
-pub const CommandringElement = union {
-    vk: rhi.wrapper_platform_type(.vk, struct {
-        semaphore: ?volk.c.VkSemaphore,
-        fence: ?volk.c.VkFence,
-        pool: *rhi.Pool,
-        cmd: *rhi.Cmd,
-    }),
-    dx12: rhi.wrapper_platform_type(.dx12, struct {}),
-    mtl: rhi.wrapper_platform_type(.mtl, struct {}),
+pub const CommandringElement = struct {
+    pub const Self = @This();
+
+    cmds: []rhi.Cmd,
+    pool: *rhi.Pool,
+    backend: union {
+        vk: rhi.wrapper_platform_type(.vk, struct {
+            semaphore: ?volk.c.VkSemaphore,
+            fence: ?volk.c.VkFence,
+        }),
+        dx12: rhi.wrapper_platform_type(.dx12, struct {}),
+        mtl: rhi.wrapper_platform_type(.mtl, struct {}),
+    },
+
+    pub fn wait(self: *Self, renderer: *rhi.Renderer, device: *rhi.Device) !void {
+        if (rhi.is_target_selected(.vk, renderer)) {
+            if (self.backend.vk.fence) |fence| {
+                try rhi.vulkan.wrap_err(volk.c.vkWaitForFences.?(device.backend.vk.device, 1, &fence, volk.c.VK_TRUE, std.math.maxInt(u64)));
+            }
+        } else if (rhi.is_target_selected(.dx12, renderer)) {} else if (rhi.is_target_selected(.mtl, renderer)) {}
+    }
 };
 
 pub fn CommandRingBuffer(
@@ -192,7 +212,6 @@ pub fn CommandRingBuffer(
         cmds: [options.pool_count][options.cmd_per_pool]rhi.Cmd,
         backend: union {
             vk: rhi.wrapper_platform_type(.vk, struct {
-                pool: *rhi.Pool,
                 fences: if (options.sync_primative) [options.pool_count][options.cmd_per_pool]volk.c.VkFence else void,
                 semaphores: if (options.sync_primative) [options.pool_count][options.cmd_per_pool]volk.c.VkSemaphore else void,
             }),
@@ -208,13 +227,10 @@ pub fn CommandRingBuffer(
             if (rhi.is_target_selected(.vk, renderer)) {
                 std.debug.assert(num_cmds <= options.cmd_per_pool);
                 std.debug.assert(num_cmds + self.cmd_index <= options.cmd_per_pool);
-                const result = CommandringElement{ 
-                    .vk = .{
+                const result = CommandringElement{ .cmds = self.cmds[self.pool_index][self.cmd_index .. self.cmd_index + num_cmds], .pool = &self.pools[self.pool_index], .backend = .{ .vk = .{
                     .semaphore = if (options.sync_primative) self.backend.vk.semaphores[self.pool_index][self.fence_index] else null,
                     .fence = if (options.sync_primative) self.backend.vk.fences[self.pool_index][self.fence_index] else null,
-                    .pool = &self.pools[self.pool_index],
-                    .cmd = &self.cmds[self.pool_index][self.cmd_index..self.cmd_index + num_cmds],
-                } };
+                } } };
                 self.fence_index += 1;
                 self.cmd_index += num_cmds;
                 return result;
@@ -223,15 +239,15 @@ pub fn CommandRingBuffer(
         }
         pub fn init(renderer: *rhi.Renderer, device: *rhi.Device, queue: *rhi.Queue) !Self {
             if (rhi.is_target_selected(.vk, renderer)) {
-                const cmds: [options.pool_count][options.cmd_per_pool]rhi.Cmd = undefined;
-                const pools: [options.pool_count]rhi.Pool = undefined;
-                const semaphores: if (options.sync_primative) [options.pool_count][options.cmd_per_pool]volk.c.VkSemaphore else void = undefined;
-                const fences: if (options.sync_primative) [options.pool_count][options.cmd_per_pool]volk.c.VkFence else void = undefined;
+                var cmds: [options.pool_count][options.cmd_per_pool]rhi.Cmd = undefined;
+                var pools: [options.pool_count]rhi.Pool = undefined;
+                var semaphores: if (options.sync_primative) [options.pool_count][options.cmd_per_pool]volk.c.VkSemaphore else void = undefined;
+                var fences: if (options.sync_primative) [options.pool_count][options.cmd_per_pool]volk.c.VkFence else void = undefined;
                 for (0..options.pool_count) |pool_index| {
                     pools[pool_index] = try rhi.Pool.init(renderer, device, queue);
-                    for(0..options.cmd_per_pool) |cmd_index| {
+                    for (0..options.cmd_per_pool) |cmd_index| {
                         cmds[pool_index][cmd_index] = try rhi.Cmd.init(renderer, device, &pools[pool_index]);
-                        if(options.sync_primative) {
+                        if (options.sync_primative) {
                             var semaphore_create_info = volk.c.VkSemaphoreCreateInfo{
                                 .sType = volk.c.VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
                             };
@@ -244,14 +260,7 @@ pub fn CommandRingBuffer(
                         }
                     }
                 }
-                return .{
-                .pool_index = options.pool_count,
-                .cmd_index = 0,
-                .fence_index = 0,
-                .cmds = cmds,
-                .pools = pools,
-                .backend = .{ .vk = .{
-                    .cmds = cmds,
+                return .{ .pool_index = options.pool_count, .cmd_index = 0, .fence_index = 0, .cmds = cmds, .pools = pools, .backend = .{ .vk = .{
                     .semaphores = semaphores,
                     .fences = fences,
                 } } };
@@ -297,15 +306,17 @@ pub fn begin(self: *Cmd, renderer: *rhi.Renderer) !void {
         };
         vulkan.add_next(&begin_info, &device_group_begin_info);
         try vulkan.wrap_err(volk.c.vkBeginCommandBuffer.?(self.backend.vk.cmd, &begin_info));
+        return;
     } else if (rhi.is_target_selected(.dx12, renderer)) {} else if (rhi.is_target_selected(.mtl, renderer)) {}
-    return error.UnsupportedBackend;
+    unreachable;
 }
 
 pub fn end(self: *Cmd, renderer: *rhi.Renderer) !void {
     if (rhi.is_target_selected(.vk, renderer)) {
         try vulkan.wrap_err(volk.c.vkEndCommandBuffer.?(self.backend.vk.cmd));
+        return;
     } else if (rhi.is_target_selected(.dx12, renderer)) {} else if (rhi.is_target_selected(.mtl, renderer)) {}
-    return error.UnsupportedBackend;
+    unreachable;
 }
 
 //pub fn resourceBarrier(self: *Cmd, allocator: std.mem.Allocator, renderer: *rhi.Renderer, options: struct {
