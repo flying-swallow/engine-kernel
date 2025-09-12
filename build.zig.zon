@@ -14,6 +14,14 @@
             .url = "git+https://github.com/johan0A/clay-zig-bindings.git#18cc9c148f02c3f00f824cc3a36db5030fd3de34",
             .hash = "zclay-0.2.2-Ej1rkJfRAABn4fTSKQ1Rn54ssdmyCsuBT3zjrdhSxTO4",
         },
+        .vulkan_headers = .{
+            .url = "https://github.com/KhronosGroup/Vulkan-Headers/archive/v1.3.283.tar.gz",
+            .hash = "N-V-__8AAAkkoQGn5z1yoNVrwqZfnYmZp8AZ5CJgoHRMQI0c",
+        },
+        .vulkan = .{
+            .url = "git+https://github.com/flying-swallow/vulkan-zig.git#4b7b9a8b949f326d85d9eff5013f445fb95ffbab",
+            .hash = "vulkan-0.0.0-r7Ytx5BBAwCay_2JFZPIdfMhfu28r5znPs1-DXRmuMIk",
+        },
     },
     .paths = .{ "build.zig", "build.zig.zon", "src" },
 }

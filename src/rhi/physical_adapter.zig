@@ -1,7 +1,5 @@
 const rhi = @import("rhi.zig");
 const std = @import("std");
-const volk = @import("volk");
-const vulkan = @import("vulkan.zig");
 const gpu_preset = @import("gpu_preset.zig");
 
 pub const Vendor = enum(u8) { unknown, nvidia, amd, intel };
@@ -27,7 +25,7 @@ pub const AdapterType = enum(u8) {
 pub const PhysicalAdapter = @This();
 backend: union {
     vk: rhi.wrapper_platform_type(.vk, struct {
-        physical_device: volk.c.VkPhysicalDevice = null,
+        physical_device: rhi.vulkan.vk.PhysicalDevice = null,
         api_version: u32 = 0,
         is_swap_chain_supported: bool = false,
         is_buffer_device_address_supported: bool = false,
@@ -206,54 +204,55 @@ pub fn enumerate_adapters(allocator: std.mem.Allocator, renderer: *rhi.Renderer)
     var result = std.ArrayList(PhysicalAdapter).empty;
     errdefer result.deinit(allocator);
     if (rhi.is_target_selected(.vk, renderer)) {
+        var ikb: *rhi.vulkan.vk.InstanceWrapper = renderer.backend.vk.ikb;
         var deviceGroupsCount: u32 = 0;
-        try vulkan.wrap_err(volk.c.vkEnumeratePhysicalDeviceGroups.?(renderer.backend.vk.instance, &deviceGroupsCount, null));
-        const physicalDeviceProperties = try allocator.alloc(volk.c.VkPhysicalDeviceGroupProperties, deviceGroupsCount);
+        _ = try ikb.enumeratePhysicalDevices(renderer.backend.vk.instance, &deviceGroupsCount, null);
+        const physicalDeviceProperties = try allocator.alloc(rhi.vulkan.vk.PhysicalDeviceGroupProperties, deviceGroupsCount);
         for(physicalDeviceProperties) |*p| {
             p.* = .{
-                .sType = volk.c.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GROUP_PROPERTIES
+                .sType = .physical_device_group_properties
             };
         }
         defer allocator.free(physicalDeviceProperties);
-        try vulkan.wrap_err(volk.c.vkEnumeratePhysicalDeviceGroups.?(renderer.backend.vk.instance, &deviceGroupsCount, physicalDeviceProperties.ptr));
+        _ = try ikb.enumeratePhysicalDeviceGroups(renderer.backend.vk.instance, &deviceGroupsCount, physicalDeviceProperties.ptr);
         var i: usize = 0;
         while (i < deviceGroupsCount) : (i += 1) {
             const physical_device = physicalDeviceProperties[i].physicalDevices[0];
             var extension_num: u32 = 0;
-            try vulkan.wrap_err(volk.c.vkEnumerateDeviceExtensionProperties.?(physical_device, null, &extension_num, null));
-            const extension_properties: []volk.c.VkExtensionProperties = try allocator.alloc(volk.c.VkExtensionProperties, extension_num);
+            _ = try ikb.enumerateDeviceExtensionProperties(physical_device, null, &extension_num, null);
+            const extension_properties: []rhi.vulkan.vk.ExtensionProperties= try allocator.alloc(rhi.vulkan.vk.ExtensionProperties, extension_num);
             defer allocator.free(extension_properties);
-            try vulkan.wrap_err(volk.c.vkEnumerateDeviceExtensionProperties.?(physical_device, null, &extension_num, extension_properties.ptr));
+            _ = try ikb.enumerateDeviceExtensionProperties(physical_device, null, &extension_num, extension_properties.ptr);
 
-            var properties: volk.c.VkPhysicalDeviceProperties2 = .{ .sType = volk.c.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
-            var props11: volk.c.VkPhysicalDeviceVulkan11Properties = .{ .sType = volk.c.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_PROPERTIES };
-            var props12: volk.c.VkPhysicalDeviceVulkan12Properties = .{ .sType = volk.c.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_PROPERTIES };
-            var props13: volk.c.VkPhysicalDeviceVulkan13Properties = .{ .sType = volk.c.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_PROPERTIES };
-            var deviceIDProperties: volk.c.VkPhysicalDeviceIDProperties = .{ .sType = volk.c.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES };
+            var properties: rhi.vulkan.vk.PhysicalDeviceProperties2 = .{ .s_type = .physical_device_properties_2 };
+            var props11: rhi.vulkan.vk.PhysicalDeviceVulkan11Properties = .{ .s_type = .physical_device_vulkan_1_1_properties };
+            var props12: rhi.vulkan.vk.PhysicalDeviceVulkan12Properties = .{ .s_type  = .physical_device_vulkan_1_2_properties};
+            var props13: rhi.vulkan.vk.PhysicalDeviceVulkan13Properties = .{ .s_type   = .physical_device_vulkan_1_3_properties };
+            var deviceIDProperties: rhi.vulkan.vk.PhysicalDeviceIDProperties = .{ .s_type = .physical_device_id_properties };
 
-            vulkan.add_next(&properties, &props11);
-            vulkan.add_next(&properties, &props12);
-            vulkan.add_next(&properties, &props13);
-            vulkan.add_next(&properties, &deviceIDProperties);
+            rhi.vulkan.add_next(&properties, &props11);
+            rhi.vulkan.add_next(&properties, &props12);
+            rhi.vulkan.add_next(&properties, &props13);
+            rhi.vulkan.add_next(&properties, &deviceIDProperties);
 
-            var features: volk.c.VkPhysicalDeviceFeatures2 = .{ .sType = volk.c.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
-            var features11: volk.c.VkPhysicalDeviceVulkan11Features = .{ .sType = volk.c.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES };
-            var features12: volk.c.VkPhysicalDeviceVulkan12Features = .{ .sType = volk.c.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES };
-            var features13: volk.c.VkPhysicalDeviceVulkan13Features = .{ .sType = volk.c.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES };
-            var present_id_features: volk.c.VkPhysicalDevicePresentIdFeaturesKHR = .{ .sType = volk.c.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_FEATURES_KHR };
+            var features: rhi.vulkan.vk.PhysicalDeviceFeatures2 = .{ .sType = .physical_device_features_2 };
+            var features11: rhi.vulkan.vk.PhysicalDeviceVulkan11Features = .{ .sType = .physical_device_vulkan_1_1_features};
+            var features12: rhi.vulkan.vk.PhysicalDeviceVulkan12Features = .{ .sType = .physical_device_vulkan_1_2_features };
+            var features13: rhi.vulkan.vk.PhysicalDeviceVulkan13Features = .{ .sType = .physical_device_vulkan_1_3_features };
+            var present_id_features: rhi.vulkan.vk.PhysicalDevicePresentIdFeaturesKHR = .{ .sType = .physical_device_present_id_features_khr };
 
-            vulkan.add_next(&features, &features11);
-            vulkan.add_next(&features, &features12);
-            vulkan.add_next(&features, &features13);
+            rhi.vulkan.add_next(&features, &features11);
+            rhi.vulkan.add_next(&features, &features12);
+            rhi.vulkan.add_next(&features, &features13);
 
-            if (vulkan.vk_has_extension(extension_properties, volk.c.VK_KHR_PRESENT_ID_EXTENSION_NAME)) {
-                vulkan.add_next(&features, &present_id_features);
+            if (rhi.vulkan.vk_has_extension(extension_properties, rhi.vulkan.vk.extensions.khr_present_id.name[0..])) {
+                rhi.vulkan.add_next(&features, &present_id_features);
             }
 
-            var memory_properties: volk.c.VkPhysicalDeviceMemoryProperties = .{};
-            volk.c.vkGetPhysicalDeviceMemoryProperties.?(physical_device, &memory_properties);
-            volk.c.vkGetPhysicalDeviceProperties2.?(physical_device, &properties);
-            volk.c.vkGetPhysicalDeviceFeatures2.?(physical_device, &features);
+            var memory_properties: rhi.vulkan.vk.PhysicalDeviceMemoryProperties = .{};
+            ikb.getPhysicalDeviceMemoryProperties(physical_device, &memory_properties);
+            ikb.getPhysicalDeviceProperties2(physical_device, &properties);
+            ikb.getPhysicalDeviceFeatures2(physical_device, &features);
 
             const limits = &properties.properties.limits;
             var physical_adapter: PhysicalAdapter = .{
@@ -270,141 +269,141 @@ pub fn enumerate_adapters(allocator: std.mem.Allocator, renderer: *rhi.Renderer)
                         .api_version = properties.properties.apiVersion, 
                         .physical_device = physical_device, 
                         .is_present_id_supported = present_id_features.presentId > 0, 
-                        .is_swap_chain_supported = vulkan.vk_has_extension(extension_properties, volk.c.VK_KHR_SWAPCHAIN_EXTENSION_NAME), 
-                        .is_buffer_device_address_supported = properties.properties.apiVersion >= volk.c.VK_API_VERSION_1_2 or vulkan.vk_has_extension(extension_properties, volk.c.VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME), 
-                        .is_amd_device_coherent_memory_supported = vulkan.vk_has_extension(extension_properties, volk.c.VK_AMD_DEVICE_COHERENT_MEMORY_EXTENSION_NAME), 
-                        .is_maintenance5_supported =  vulkan.vk_has_extension(extension_properties, volk.c.VK_KHR_MAINTENANCE_5_EXTENSION_NAME), 
+                        .is_swap_chain_supported = rhi.vulkan.vk_has_extension(extension_properties, rhi.vulkan.vk.extensions.khr_swapchain.name), 
+                        .is_buffer_device_address_supported = properties.properties.apiVersion >= rhi.vulkan.vk.API_VERSION_1_2 or rhi.vulkan.vk_has_extension(extension_properties, rhi.vulkan.vk.extensions.khr_buffer_device_address.name), 
+                        .is_amd_device_coherent_memory_supported = rhi.vulkan.vk_has_extension(extension_properties, rhi.vulkan.vk.extensions.amd_device_coherent_memory.name), 
+                        .is_maintenance5_supported =  rhi.vulkan.vk_has_extension(extension_properties, rhi.vulkan.vk.extensions.khr_maintenance_5.name), 
                     } 
                 },
                 .preset_level = blk: {
                     for (gpu_preset.desktop_presets) |preset| {
-                        if (preset.vendor_id == properties.properties.vendorID and preset.model_id == properties.properties.deviceID) {
+                        if (preset.vendor_id == properties.properties.vendor_id and preset.model_id == properties.properties.device_id) {
                             break :blk preset.preset_level;
                         }
                     }
                     break :blk .none;
                 },
-                .adapter_type = switch (properties.properties.deviceType) {
-                    volk.c.VK_PHYSICAL_DEVICE_TYPE_OTHER => .other,
-                    volk.c.VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU => .integrated,
-                    volk.c.VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU => .discrete,
-                    volk.c.VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU => .virtual,
-                    volk.c.VK_PHYSICAL_DEVICE_TYPE_CPU => .cpu,
+                .adapter_type = switch (properties.properties.device_type) {
+                    .other => .other,
+                    .integrated_gpu => .integrated,
+                    .discrete_gpu => .discrete,
+                    .virtual_gpu => .virtual,
+                    .cpu => .cpu,
                     else => .other,
                 },
-                .viewport_max_num = limits.maxViewports,
-                .viewport_bounds_range = [_]f32{ limits.viewportBoundsRange[0], limits.viewportBoundsRange[1] },
+                .viewport_max_num = limits.max_viewports,
+                .viewport_bounds_range = [_]f32{ limits.viewport_bounds_range[0], limits.viewport_bounds_range[1] },
 
-                .attachment_max_dim = @min(limits.maxFramebufferWidth, limits.maxFramebufferHeight),
-                .attachment_layer_max_num = limits.maxFramebufferLayers,
-                .color_attachment_max_num = limits.maxColorAttachments,
+                .attachment_max_dim = @min(limits.max_framebuffer_width, limits.max_framebuffer_height),
+                .attachment_layer_max_num = limits.max_framebuffer_layers,
+                .color_attachment_max_num = limits.max_color_attachments,
 
-                .color_sample_max_num = @intCast(limits.framebufferColorSampleCounts),
-                .depth_sample_max_num = @intCast(limits.framebufferDepthSampleCounts),
-                .stencil_sample_max_num = @intCast(limits.framebufferStencilSampleCounts),
-                .zero_attachments_sample_max_num = @intCast(limits.framebufferNoAttachmentsSampleCounts),
-                .texture_color_sample_max_num = @intCast(limits.sampledImageColorSampleCounts),
-                .texture_integer_sample_max_num = @intCast(limits.sampledImageIntegerSampleCounts),
-                .texture_depth_sample_max_num = @intCast(limits.sampledImageDepthSampleCounts),
-                .texture_stencil_sample_max_num = @intCast(limits.sampledImageStencilSampleCounts),
-                .storage_texture_sample_max_num = @intCast(limits.storageImageSampleCounts),
+                .color_sample_max_num = @intCast(limits.framebuffer_color_sample_counts),
+                .depth_sample_max_num = @intCast(limits.framebuffer_depth_sample_counts),
+                .stencil_sample_max_num = @intCast(limits.framebuffer_stencil_sample_counts),
+                .zero_attachments_sample_max_num = @intCast(limits.framebuffer_no_attachments_sample_counts),
+                .texture_color_sample_max_num = @intCast(limits.sampled_image_color_sample_counts),
+                .texture_integer_sample_max_num = @intCast(limits.sampled_image_integer_sample_counts),
+                .texture_depth_sample_max_num = @intCast(limits.sampled_image_depth_sample_counts),
+                .texture_stencil_sample_max_num = @intCast(limits.sampled_image_stencil_sample_counts),
+                .storage_texture_sample_max_num = @intCast(limits.storage_image_sample_counts),
 
-                .texture_1d_max_dim = @intCast(limits.maxImageDimension1D),
-                .texture_2d_max_dim = @intCast(limits.maxImageDimension2D),
-                .texture_3d_max_dim = @intCast(limits.maxImageDimension3D),
-                .texture_array_layer_max_num = @intCast(limits.maxImageArrayLayers),
-                .typed_buffer_max_dim = limits.maxTexelBufferElements,
-                .memory_allocation_max_num = limits.maxMemoryAllocationCount,
-                .sampler_allocation_max_num = limits.maxSamplerAllocationCount,
-                .constant_buffer_max_range = limits.maxUniformBufferRange,
-                .storage_buffer_max_range = limits.maxStorageBufferRange,
-                .buffer_texture_granularity = limits.bufferImageGranularity,
-                .buffer_max_size = props13.maxBufferSize,
+                .texture_1d_max_dim = @intCast(limits.max_image_dimension_1d),
+                .texture_2d_max_dim = @intCast(limits.max_image_dimension_2d),
+                .texture_3d_max_dim = @intCast(limits.max_image_dimension_3d),
+                .texture_array_layer_max_num = @intCast(limits.max_image_array_layers),
+                .typed_buffer_max_dim = limits.max_texel_buffer_elements,
+                .memory_allocation_max_num = limits.max_memory_allocation_count,
+                .sampler_allocation_max_num = limits.max_sampler_allocation_count,
+                .constant_buffer_max_range = limits.max_uniform_buffer_range,
+                .storage_buffer_max_range = limits.max_storage_buffer_range,
+                .buffer_texture_granularity = limits.buffer_image_granularity,
+                .buffer_max_size = props13.max_buffer_size,
 
-                .upload_buffer_texture_row_alignment = @intCast(limits.optimalBufferCopyRowPitchAlignment),
-                .upload_buffer_texture_slice_alignment = @intCast(limits.optimalBufferCopyOffsetAlignment), // TODO: ?
-                .buffer_shader_resource_offset_alignment = @intCast(@max(limits.minTexelBufferOffsetAlignment, limits.minStorageBufferOffsetAlignment)),
-                .constant_buffer_offset_alignment = @intCast(limits.minUniformBufferOffsetAlignment),
+                .upload_buffer_texture_row_alignment = @intCast(limits.optimal_buffer_copy_row_pitch_alignment),
+                .upload_buffer_texture_slice_alignment = @intCast(limits.optimal_buffer_copy_offset_alignment),
+                .buffer_shader_resource_offset_alignment = @intCast(@max(limits.min_texel_buffer_offset_alignment, limits.min_storage_buffer_offset_alignment)),
+                .constant_buffer_offset_alignment = @intCast(limits.min_uniform_buffer_offset_alignment),
                 // physicalAdapter->scratchBufferOffsetAlignment = accelerationStructureProps.minAccelerationStructureScratchOffsetAlignment;
                 // physicalAdapter->shaderBindingTableAlignment = rayTracingProps.shaderGroupBaseAlignment;
 
-                .pipeline_layout_descriptor_set_max_num = limits.maxBoundDescriptorSets,
-                .pipeline_layout_root_constant_max_size = limits.maxPushConstantsSize,
+                .pipeline_layout_descriptor_set_max_num = limits.max_bound_descriptor_sets,
+                .pipeline_layout_root_constant_max_size = limits.max_push_constants_size,
                 // physicalAdapter->pipelineLayoutRootDescriptorMaxNum = pushDescriptorProps.maxPushDescriptors;
 
-                .per_stage_descriptor_sampler_max_num = limits.maxPerStageDescriptorSamplers,
-                .per_stage_descriptor_constant_buffer_max_num = limits.maxPerStageDescriptorUniformBuffers,
-                .per_stage_descriptor_storage_buffer_max_num = limits.maxPerStageDescriptorStorageBuffers,
-                .per_stage_descriptor_texture_max_num = limits.maxPerStageDescriptorSampledImages,
-                .per_stage_descriptor_storage_texture_max_num = limits.maxPerStageDescriptorStorageImages,
-                .per_stage_resource_max_num = limits.maxPerStageResources,
+                .per_stage_descriptor_sampler_max_num = limits.max_per_stage_descriptor_samplers,
+                .per_stage_descriptor_constant_buffer_max_num = limits.max_per_stage_descriptor_uniform_buffers,
+                .per_stage_descriptor_storage_buffer_max_num = limits.max_per_stage_descriptor_storage_buffers,
+                .per_stage_descriptor_texture_max_num = limits.max_per_stage_descriptor_sampled_images,
+                .per_stage_descriptor_storage_texture_max_num = limits.max_per_stage_descriptor_storage_images,
+                .per_stage_resource_max_num = limits.max_per_stage_resources,
 
-                .descriptor_set_sampler_max_num = limits.maxDescriptorSetSamplers,
-                .descriptor_set_constant_buffer_max_num = limits.maxDescriptorSetUniformBuffers,
-                .descriptor_set_storage_buffer_max_num = limits.maxDescriptorSetStorageBuffers,
-                .descriptor_set_texture_max_num = limits.maxDescriptorSetSampledImages,
-                .descriptor_set_storage_texture_max_num = limits.maxDescriptorSetStorageImages,
+                .descriptor_set_sampler_max_num = limits.max_descriptor_set_samplers,
+                .descriptor_set_constant_buffer_max_num = limits.max_descriptor_set_uniform_buffers,
+                .descriptor_set_storage_buffer_max_num = limits.max_descriptor_set_storage_buffers,
+                .descriptor_set_texture_max_num = limits.max_descriptor_set_sampled_images,
+                .descriptor_set_storage_texture_max_num = limits.max_descriptor_set_storage_images,
 
-                .vertex_shader_attribute_max_num = limits.maxVertexInputAttributes,
-                .vertex_shader_stream_max_num = limits.maxVertexInputBindings,
-                .vertex_shader_output_component_max_num = limits.maxVertexOutputComponents,
+                .vertex_shader_attribute_max_num = limits.max_vertex_input_attributes,
+                .vertex_shader_stream_max_num = limits.max_vertex_input_bindings,
+                .vertex_shader_output_component_max_num = limits.max_vertex_output_components,
 
-                .tess_control_shader_generation_max_level = limits.maxTessellationGenerationLevel,
-                .tess_control_shader_patch_point_max_num = limits.maxTessellationPatchSize,
-                .tess_control_shader_per_vertex_input_component_max_num = limits.maxTessellationControlPerVertexInputComponents,
-                .tess_control_shader_per_vertex_output_component_max_num = limits.maxTessellationControlPerVertexOutputComponents,
-                .tess_control_shader_per_patch_output_component_max_num = limits.maxTessellationControlPerPatchOutputComponents,
-                .tess_control_shader_total_output_component_max_num = limits.maxTessellationControlTotalOutputComponents,
-                .tess_evaluation_shader_input_component_max_num = limits.maxTessellationEvaluationInputComponents,
-                .tess_evaluation_shader_output_component_max_num = limits.maxTessellationEvaluationOutputComponents,
+                .tess_control_shader_generation_max_level = limits.max_tessellation_generation_level,
+                .tess_control_shader_patch_point_max_num = limits.max_tessellation_patch_size,
+                .tess_control_shader_per_vertex_input_component_max_num = limits.max_tessellation_control_per_vertex_input_components,
+                .tess_control_shader_per_vertex_output_component_max_num = limits.max_tessellation_control_per_vertex_output_components,
+                .tess_control_shader_per_patch_output_component_max_num = limits.max_tessellation_control_per_patch_output_components,
+                .tess_control_shader_total_output_component_max_num = limits.max_tessellation_control_total_output_components,
+                .tess_evaluation_shader_input_component_max_num = limits.max_tessellation_evaluation_input_components,
+                .tess_evaluation_shader_output_component_max_num = limits.max_tessellation_evaluation_output_components,
 
-                .geometry_shader_invocation_max_num = limits.maxGeometryShaderInvocations,
-                .geometry_shader_input_component_max_num = limits.maxGeometryInputComponents,
-                .geometry_shader_output_component_max_num = limits.maxGeometryOutputComponents,
-                .geometry_shader_output_vertex_max_num = limits.maxGeometryOutputVertices,
-                .geometry_shader_total_output_component_max_num = limits.maxGeometryTotalOutputComponents,
+                .geometry_shader_invocation_max_num = limits.max_geometry_shader_invocations,
+                .geometry_shader_input_component_max_num = limits.max_geometry_input_components,
+                .geometry_shader_output_component_max_num = limits.max_geometry_output_components,
+                .geometry_shader_output_vertex_max_num = limits.max_geometry_output_vertices,
+                .geometry_shader_total_output_component_max_num = limits.max_geometry_total_output_components,
 
-                .fragment_shader_input_component_max_num = limits.maxFragmentInputComponents,
-                .fragment_shader_output_attachment_max_num = limits.maxFragmentOutputAttachments,
-                .fragment_shader_dual_source_attachment_max_num = limits.maxFragmentDualSrcAttachments,
+                .fragment_shader_input_component_max_num = limits.max_fragment_input_components,
+                .fragment_shader_output_attachment_max_num = limits.max_fragment_output_attachments,
+                .fragment_shader_dual_source_attachment_max_num = limits.max_fragment_dual_src_attachments,
 
-                .compute_shader_shared_memory_max_size = limits.maxComputeSharedMemorySize,
-                .compute_shader_work_group_max_num = [_]u32{ limits.maxComputeWorkGroupCount[0], limits.maxComputeWorkGroupCount[1], limits.maxComputeWorkGroupCount[2] },
-                .compute_shader_work_group_invocation_max_num = limits.maxComputeWorkGroupInvocations,
-                .compute_shader_work_group_max_dim = [_]u32{ limits.maxComputeWorkGroupSize[0], limits.maxComputeWorkGroupSize[1], limits.maxComputeWorkGroupSize[2] },
+                .compute_shader_shared_memory_max_size = limits.max_compute_shared_memory_size,
+                .compute_shader_work_group_max_num = [_]u32{ limits.max_compute_work_group_count[0], limits.max_compute_work_group_count[1], limits.max_compute_work_group_count[2] },
+                .compute_shader_work_group_invocation_max_num = limits.max_compute_work_group_invocations,
+                .compute_shader_work_group_max_dim = [_]u32{ limits.max_compute_work_group_size[0], limits.max_compute_work_group_size[1], limits.max_compute_work_group_size[2] },
 
-                .viewport_precision_bits = limits.viewportSubPixelBits,
-                .sub_pixel_precision_bits = limits.subPixelPrecisionBits,
-                .sub_texel_precision_bits = limits.subTexelPrecisionBits,
-                .mipmap_precision_bits = limits.mipmapPrecisionBits,
+                .viewport_precision_bits = limits.viewport_sub_pixel_bits,
+                .sub_pixel_precision_bits = limits.sub_pixel_precision_bits,
+                .sub_texel_precision_bits = limits.sub_texel_precision_bits,
+                .mipmap_precision_bits = limits.mipmap_precision_bits,
 
-                .timestamp_frequency_hz = @intFromFloat(1e9 / @as(f64, limits.timestampPeriod) + 0.5),
-                .draw_indirect_max_num = limits.maxDrawIndirectCount,
-                .sampler_lod_bias_min = -limits.maxSamplerLodBias,
-                .sampler_lod_bias_max = limits.maxSamplerLodBias,
-                .sampler_anisotropy_max = limits.maxSamplerAnisotropy,
-                .texel_offset_min = limits.minTexelOffset,
-                .texel_offset_max = limits.maxTexelOffset,
-                .texel_gather_offset_min = limits.minTexelGatherOffset,
-                .texel_gather_offset_max = limits.maxTexelGatherOffset,
-                .clip_distance_max_num = limits.maxClipDistances,
-                .cull_distance_max_num = limits.maxCullDistances,
-                .combined_clip_and_cull_distance_max_num = limits.maxCombinedClipAndCullDistances,
+                .timestamp_frequency_hz = @intFromFloat(1e9 / @as(f64, limits.timestamp_period) + 0.5),
+                .draw_indirect_max_num = limits.max_draw_indirect_count,
+                .sampler_lod_bias_min = -limits.max_sampler_lod_bias,
+                .sampler_lod_bias_max = limits.max_sampler_lod_bias,
+                .sampler_anisotropy_max = limits.max_sampler_anisotropy,
+                .texel_offset_min = limits.min_texel_offset,
+                .texel_offset_max = limits.max_texel_offset,
+                .texel_gather_offset_min = limits.min_texel_gather_offset,
+                .texel_gather_offset_max = limits.max_texel_gather_offset,
+                .clip_distance_max_num = limits.max_clip_distances,
+                .cull_distance_max_num = limits.max_cull_distances,
+                .combined_clip_and_cull_distance_max_num = limits.max_combined_clip_and_cull_distances,
 
                 //physicalAdapter->vendor = VendorFromID( properties.properties.vendorID );
                 //physicalAdapter->vk.physicalDevice = physicalAdapter->vk.physicalDevice;
                 //physicalAdapter->vk.apiVersion = properties.properties.apiVersion;
                 //physicalAdapter->presetLevel = RI_GPU_PRESET_NONE;
 
-                .bindless_tier = if (features12.descriptorIndexing > 0) 1 else 0,
+                .bindless_tier = if (features12.descriptor_indexing > 0) 1 else 0,
 
-                .is_texture_filter_min_max_supported = features12.samplerFilterMinmax == volk.c.VK_TRUE,
-                .is_logic_func_supported = features.features.logicOp == volk.c.VK_TRUE,
-                .is_depth_bounds_test_supported = features.features.depthBounds == volk.c.VK_TRUE,
-                .is_draw_indirect_count_supported = features12.drawIndirectCount == volk.c.VK_TRUE,
+                .is_texture_filter_min_max_supported = features12.sampler_filter_minmax == .true,
+                .is_logic_func_supported = features.features.logic_op == .true,
+                .is_depth_bounds_test_supported = features.features.depth_bounds == .true,
+                .is_draw_indirect_count_supported = features12.draw_indirect_count == .true,
                 .is_independent_front_and_back_stencil_reference_and_masks_supported = true,
                 // physicalAdapter->isLineSmoothingSupported = lineRasterizationFeatures.smoothLines;
-                .is_copy_queue_timestamp_supported = limits.timestampComputeAndGraphics == volk.c.VK_TRUE,
+                .is_copy_queue_timestamp_supported = limits.timestamp_compute_and_graphics == .true,
                 // physicalAdapter->isMeshShaderPipelineStatsSupported = meshShaderFeatures.meshShaderQueries == VK_TRUE;
                 .is_enchanced_barrier_supported = true,
                 .is_memory_tier2_supported = true, // TODO: seems to be the best match
@@ -412,34 +411,35 @@ pub fn enumerate_adapters(allocator: std.mem.Allocator, renderer: *rhi.Renderer)
                 .is_viewport_origin_bottom_left_supported = true,
                 .is_region_resolve_supported = true,
 
-                .is_shader_native_i16_supported = features.features.shaderInt16 == volk.c.VK_TRUE,
-                .is_shader_native_f16_supported = features12.shaderFloat16 == volk.c.VK_TRUE,
+                .is_shader_native_i16_supported = features.features.shader_int_16 == .true,
+                .is_shader_native_f16_supported = features12.shaderFloat16 == rhi.vulkan.vk.VK_TRUE,
                 .is_shader_native_i32_supported = true,
                 .is_shader_native_f32_supported = true,
-                .is_shader_native_i64_supported = features.features.shaderInt64 == volk.c.VK_TRUE,
-                .is_shader_native_f64_supported = features.features.shaderFloat64 == volk.c.VK_TRUE,
+                .is_shader_native_i64_supported = features.features.shaderInt64 == rhi.vulkan.vk.VK_TRUE,
+                .is_shader_native_f64_supported = features.features.shaderFloat64 == rhi.vulkan.vk.VK_TRUE,
                 // physicalAdapter->isShaderAtomicsF16Supported = (shaderAtomicFloat2Features.shaderBufferFloat16Atomics || shaderAtomicFloat2Features.shaderSharedFloat16Atomics) ? true : false;
                 .is_shader_atomics_i32_supported = true,
                 // physicalAdapter->isShaderAtomicsF32Supported = (shaderAtomicFloatFeatures.shaderBufferFloat32Atomics || shaderAtomicFloatFeatures.shaderSharedFloat32Atomics) ? true : false;
-                .is_shader_atomics_i64_supported = if ((features12.shaderBufferInt64Atomics == volk.c.VK_TRUE) or (features12.shaderSharedInt64Atomics == volk.c.VK_TRUE)) true else false,
+                .is_shader_atomics_i64_supported = if ((features12.shader_buffer_int_64_atomics == .true) or (features12.shader_shared_int_64_atomics == .true)) true else false,
                 // physicalAdapter->isShaderAtomicsF64Supported = (shaderAtomicFloatFeatures.shaderBufferFloat64Atomics || shaderAtomicFloatFeatures.shaderSharedFloat64Atomics) ? true : false;
                 //
                 //
             };
-            {
-                var k: usize = 0;
-                while (k < memory_properties.memoryHeapCount) : (k += 1) {
-                    if ((memory_properties.memoryHeaps[i].flags & volk.c.VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) != 0 and physical_adapter.adapter_type != .integrated) {
-                        physical_adapter.video_memory_size += memory_properties.memoryHeaps[i].size;
-                    } else {
-                        physical_adapter.system_memory_size += memory_properties.memoryHeaps[i].size;
-                    }
-                    const uploadHeapFlags: u32 = (volk.c.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | volk.c.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-                    if ((memory_properties.memoryHeaps[i].flags & uploadHeapFlags) == uploadHeapFlags) {
-                        physical_adapter.device_upload_heap_size += memory_properties.memoryHeaps[i].size;
-                    }
+            for(0..memory_properties.memory_heap_count) |heap_index| {
+                const memory_heap = &memory_properties.memory_heaps[heap_index];
+                if (memory_heap.flags.device_local_bit == true and physical_adapter.adapter_type != .integrated) {
+                    physical_adapter.video_memory_size += memory_heap.size;
+                } else {
+                    physical_adapter.system_memory_size += memory_heap.size;
                 }
             }
+            for(0..memory_properties.memory_type_count) |type_index| {
+                const memory_type = &memory_properties.memory_types[type_index];
+                if (memory_type.property_flags.device_local_bit == true and memory_type.property_flags.host_visible_bit == false) {
+                    physical_adapter.device_upload_heap_size += memory_properties.memory_heaps[memory_type.heap_index].size;
+                }
+            }
+
             std.mem.copyForwards(u8, physical_adapter.name[0..], std.mem.sliceTo(properties.properties.deviceName[0..], 0));
             try result.append(allocator, physical_adapter);
         }

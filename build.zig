@@ -54,6 +54,13 @@ pub fn build(b: *std.Build) !void {
         engine_module.linkLibrary(vma_dep.artifact("vma"));
     }
 
+    const registry = b.dependency("vulkan_headers", .{}).path("registry/vk.xml");      
+    const vulkan = b.dependency("vulkan", .{
+        .registry = registry,
+    }).module("vulkan-zig");
+    engine_module.addImport("vulkan", vulkan);
+
+
     const activate_zwindows = @import("zwindows").activateSdk(b, zwindows);
     lib.step.dependOn(activate_zwindows);
     
