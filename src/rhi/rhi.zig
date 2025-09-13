@@ -1,5 +1,6 @@
 const builtin = @import("builtin");
 
+
 pub const volk = @import("volk");
 pub const vulkan = @import("vulkan.zig");
 pub const vma = @import("vma");
@@ -149,7 +150,7 @@ pub fn select(ren: *Renderer ,comptime T: type, pass: T, comptime predicate: fn(
     }
 }
 
-pub fn wrapper_platform_type(api: Backend, comptime impl: type) type{
+pub fn wrapper_platform_type(api: Backend, comptime impl: type) type {
     if(platform_has_api(api)){
         return impl;
     } else {

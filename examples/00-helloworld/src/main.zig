@@ -30,10 +30,7 @@ var timekeeper: enginekit.TimeKeeper = undefined;
 var opaque_layout: rhi.PipelineLayout = undefined;
 //var opaque_pass: rhi.GraphicsPipeline = undefined;
 
-pub const CmdRingBuffer = rhi.Cmd.CommandRingBuffer(.{
-    .pool_count = 4,
-    .sync_primative = true
-});
+pub const CmdRingBuffer = rhi.Cmd.CommandRingBuffer(.{ .pool_count = 4, .sync_primative = true });
 var graphics_cmd_ring: CmdRingBuffer = undefined;
 //var cmds: [CommandBufferCount]rhi.Cmd = undefined;
 //var cmd_index: usize = 0;
@@ -125,7 +122,7 @@ fn sdlAppInit(appstate: ?*?*anyopaque, argv: [][*:0]u8) !sdl3.SDL_AppResult {
 
     errify(sdl3.SDL_SetHint(sdl3.SDL_HINT_RENDER_VSYNC, "1")) catch {};
 
-    timekeeper = .{ .tocks_per_s = sdl3.SDL_GetPerformanceFrequency()};
+    timekeeper = .{ .tocks_per_s = sdl3.SDL_GetPerformanceFrequency() };
     window = try errify(sdl3.SDL_CreateWindow("00-helloworld", 640, 480, sdl3.SDL_WINDOW_RESIZABLE));
     errdefer sdl3.SDL_DestroyWindow(window);
     renderer = try rhi.Renderer.init(allocator, .{
@@ -227,7 +224,7 @@ fn sdlAppInit(appstate: ?*?*anyopaque, argv: [][*:0]u8) !sdl3.SDL_AppResult {
     //    break :p res;
     //} } } };
 
-    graphics_cmd_ring = try CmdRingBuffer.init(&renderer, &device, &device.graphics_queue); 
+    graphics_cmd_ring = try CmdRingBuffer.init(&renderer, &device, &device.graphics_queue);
 
     return sdl3.SDL_APP_CONTINUE;
 }
@@ -241,129 +238,129 @@ fn sdlAppEvent(appstate: ?*anyopaque, event: *sdl3.SDL_Event) !sdl3.SDL_AppResul
 fn sdlAppIterate(appstate: ?*anyopaque) !sdl3.SDL_AppResult {
     _ = appstate;
 
-    while(timekeeper.consume()) {
+    while (timekeeper.consume()) {
         graphics_cmd_ring.advance();
         const swapchain_index = try swapchain.acquire_next_image(&renderer, &device, .{
-            .vk = .{ .fence = null },
+            .vk = .{ .fence = .null_handle },
             .dx12 = null,
             .mtl = null,
         });
 
         var ring_element = graphics_cmd_ring.get(&renderer, 1);
         try ring_element.wait(&renderer, &device); // Wait for the GPU to finish with this command buffer
-        
+
         try ring_element.pool.reset(&renderer, &device); // Reset the pool (which also resets the command buffers)
 
-
-        try ring_element.cmds[0].begin(&renderer);
+        try ring_element.cmds[0].begin(&renderer, &device);
         if (rhi.is_target_selected(.vk, &renderer)) {
+            var dkb: *rhi.vulkan.vk.DeviceWrapper = &device.backend.vk.dkb;
             const img = swapchain.image(&renderer, swapchain_index);
             const image_view = swapchain.image_view(&renderer, swapchain_index);
             {
-                var barriers = [_]rhi.volk.c.VkImageMemoryBarrier2{
-                    .{
-                        .sType = rhi.volk.c.VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-                        .srcStageMask = rhi.volk.c.VK_PIPELINE_STAGE_2_NONE,
-                        .srcAccessMask = 0,
-                        .dstStageMask = rhi.volk.c.VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-                        .dstAccessMask = rhi.volk.c.VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-                        .oldLayout = rhi.volk.c.VK_IMAGE_LAYOUT_UNDEFINED,
-                        .newLayout = rhi.volk.c.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                        .srcQueueFamilyIndex = rhi.volk.c.VK_QUEUE_FAMILY_IGNORED,
-                        .dstQueueFamilyIndex = rhi.volk.c.VK_QUEUE_FAMILY_IGNORED,
-                        .image = img.backend.vk.image,
-                        .subresourceRange = rhi.volk.c.VkImageSubresourceRange{
-                            .aspectMask = rhi.vulkan.determains_aspect_mask(swapchain.backend.vk.format, false),
-                            .baseMipLevel = 0,
-                            .levelCount = 1,
-                            .baseArrayLayer = 0,
-                            .layerCount = 1,
-                        },
-                    }
-                };
-                var dependency_info = rhi.volk.c.VkDependencyInfo{
-                    .sType = rhi.volk.c.VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-                    .imageMemoryBarrierCount = barriers.len,
-                    .pImageMemoryBarriers = &barriers[0],
-                };
-                rhi.volk.c.vkCmdPipelineBarrier2.?(ring_element.cmds[0].backend.vk.cmd, &dependency_info);
-            }
-            {
-                var color_attachment = [_]rhi.volk.c.VkRenderingAttachmentInfo{
-                    .{
-                        .sType = rhi.volk.c.VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-                        .imageView = image_view.vk,
-                        .imageLayout = rhi.volk.c.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                        .loadOp = rhi.volk.c.VK_ATTACHMENT_LOAD_OP_CLEAR,
-                        .storeOp = rhi.volk.c.VK_ATTACHMENT_STORE_OP_STORE,
-                        .clearValue = .{ .color = .{ .float32 = [4]f32{ 0.0, 0.0, 0.0, 1.0 } } },
-                    }
-                };
-                var rending_info = rhi.volk.c.VkRenderingInfo{
-                    .sType = rhi.volk.c.VK_STRUCTURE_TYPE_RENDERING_INFO,
-                    .renderArea = rhi.volk.c.VkRect2D{
-                        .offset = rhi.volk.c.VkOffset2D{ .x = 0, .y = 0 },
-                        .extent = rhi.volk.c.VkExtent2D{ .width = swapchain.width, .height = swapchain.height },
+                var barriers = [_]rhi.vulkan.vk.ImageMemoryBarrier2{.{
+                    .src_stage_mask = .{},
+                    .src_access_mask = .{},
+                    .dst_stage_mask = .{ .color_attachment_output_bit = true }, //rhi.volk.c.VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+                    .dst_access_mask = .{ .color_attachment_write_bit = true }, //rhi.volk.c.VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                    .old_layout = .undefined, //rhi.volk.c.VK_IMAGE_LAYOUT_UNDEFINED,
+                    .new_layout = .color_attachment_optimal, //rhi.volk.c.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                    .src_queue_family_index = rhi.vulkan.vk.QUEUE_FAMILY_IGNORED, //rhi.volk.c.VK_QUEUE_FAMILY_IGNORED,
+                    .dst_queue_family_index = rhi.vulkan.vk.QUEUE_FAMILY_IGNORED, //rhi.volk.c.VK_QUEUE_FAMILY_IGNORED,
+                    .image = img.backend.vk.image,
+                    .subresource_range = .{
+                        .aspect_mask = rhi.vulkan.determains_aspect_mask(swapchain.backend.vk.format, false),
+                        .base_mip_level = 0,
+                        .level_count = 1,
+                        .base_array_layer = 0,
+                        .layer_count = 1,
                     },
-                    .layerCount = 1,
-                    .colorAttachmentCount = 1,
-                    .pColorAttachments = &color_attachment,
+                }};
+                var dependency_info = rhi.vulkan.vk.DependencyInfo{
+                    .image_memory_barrier_count = barriers.len,
+                    .p_image_memory_barriers = barriers[0..].ptr,
                 };
-                rhi.volk.c.vkCmdBeginRendering.?(ring_element.cmds[0].backend.vk.cmd, &rending_info);
+                //rhi.volk.c.vkCmdPipelineBarrier2.?(ring_element.cmds[0].backend.vk.cmd, &dependency_info);
+                dkb.cmdPipelineBarrier2(ring_element.cmds[0].backend.vk.cmd, &dependency_info);
             }
             {
+                var color_attachment = [_]rhi.vulkan.vk.RenderingAttachmentInfo{
+                .{
+                    .resolve_mode = .{},
+                    .resolve_image_layout = .undefined,
+                    .image_view = image_view.vk,
+                    .image_layout = .color_attachment_optimal,
+                    .load_op = .clear, //rhi.volk.c.VK_ATTACHMENT_LOAD_OP_CLEAR,
+                    .store_op = .store, //rhi.volk.c.VK_ATTACHMENT_STORE_OP_STORE,
+                    .clear_value = .{ .color = .{ .float_32 = [4]f32{ 0.0, 0.0, 0.0, 1.0 } } },
+                }};
 
-                var clearRect = [_]rhi.volk.c.VkClearRect{
-                    .{
-                        .rect = rhi.volk.c.VkRect2D{
-                            .offset = rhi.volk.c.VkOffset2D{ .x = 0, .y = 0 },
-                            .extent = rhi.volk.c.VkExtent2D{ .width = swapchain.width, .height = swapchain.height },
-                        },
-                        .baseArrayLayer = 0,
-                        .layerCount = 1,
-                    }
+                var rending_info = rhi.vulkan.vk.RenderingInfo{
+                    .render_area = .{
+                        .offset = .{ .x = 0, .y = 0 },
+                        .extent = .{ .width = swapchain.width, .height = swapchain.height },
+                    },
+                    .view_mask = 0,
+                    .layer_count = 1,
+                    .color_attachment_count = 1,
+                    .p_color_attachments = &color_attachment,
                 };
-                var clearAttachment = [_]rhi.volk.c.VkClearAttachment{
-                    .{
-                        .aspectMask = rhi.volk.c.VK_IMAGE_ASPECT_COLOR_BIT,
-                        .colorAttachment = 0,
-                        .clearValue = .{ .color = .{ .float32 = [4]f32{ 0.0, 0.0, 0.0, 1.0 } } },
-                    }
-                };
-                rhi.volk.c.vkCmdClearAttachments.?(ring_element.cmds[0].backend.vk.cmd, @intCast(clearAttachment.len), clearAttachment[0..].ptr, @intCast(clearRect.len), clearRect[0..].ptr);
+                //rhi.volk.c.vkCmdBeginRendering.?(ring_element.cmds[0].backend.vk.cmd, &rending_info);
+                dkb.cmdBeginRendering(ring_element.cmds[0].backend.vk.cmd, &rending_info);
             }
-            rhi.volk.c.vkCmdEndRendering.?(ring_element.cmds[0].backend.vk.cmd);
+            {
+                var clearRect = [_]rhi.vulkan.vk.ClearRect{.{
+                    .rect = .{
+                        .offset = .{ .x = 0, .y = 0 },
+                        .extent = .{ .width = swapchain.width, .height = swapchain.height },
+                    },
+                    .base_array_layer = 0,
+                    .layer_count = 1,
+                }};
+                var clearAttachment = [_]rhi.vulkan.vk.ClearAttachment{.{
+                    .aspect_mask = .{ .color_bit = true },  //rhi.volk.c.VK_IMAGE_ASPECT_COLOR_BIT,
+                    .color_attachment = 0,
+                    .clear_value = .{ .color = .{ .float_32 = [4]f32{ 0.0, 0.0, 0.0, 1.0 } } },
+                }};
+                //rhi.volk.c.vkCmdClearAttachments.?(ring_element.cmds[0].backend.vk.cmd, @intCast(clearAttachment.len), clearAttachment[0..].ptr, @intCast(clearRect.len), clearRect[0..].ptr);
+                dkb.cmdClearAttachments(ring_element.cmds[0].backend.vk.cmd, @intCast(clearAttachment.len), clearAttachment[0..].ptr, @intCast(clearRect.len), clearRect[0..].ptr);
+            }
+            //rhi.volk.c.vkCmdEndRendering.?(ring_element.cmds[0].backend.vk.cmd);
+            dkb.cmdEndRendering(ring_element.cmds[0].backend.vk.cmd);
         }
-        try ring_element.cmds[0].end(&renderer);
+        try ring_element.cmds[0].end(&renderer, &device);
 
-        if(rhi.is_target_selected(.vk, &renderer)) {
-            const imageAcquireSemaphore = [_]rhi.volk.c.VkSemaphore{swapchain.backend.vk.signal_semaphore};
-            const waitMask = [_]rhi.volk.c.VkPipelineStageFlagBits{rhi.volk.c.VK_PIPELINE_STAGE_ALL_COMMANDS_BIT};
-            
-            const signal_semaphore = [_]rhi.volk.c.VkSemaphore{ring_element.backend.vk.semaphore.?};
-            const cmds = [_]rhi.volk.c.VkCommandBuffer{ring_element.cmds[0].backend.vk.cmd};
-            var submit_info = rhi.volk.c.VkSubmitInfo{
-                .sType = rhi.volk.c.VK_STRUCTURE_TYPE_SUBMIT_INFO,
-                .commandBufferCount = cmds.len,
-                .pCommandBuffers = cmds[0..].ptr,
-                
-                .waitSemaphoreCount = imageAcquireSemaphore.len,
-                .pWaitDstStageMask = waitMask[0..].ptr,
-                .pWaitSemaphores = imageAcquireSemaphore[0..].ptr,
+        if (rhi.is_target_selected(.vk, &renderer)) {
+            var dkb: *rhi.vulkan.vk.DeviceWrapper = &device.backend.vk.dkb;
+            const imageAcquireSemaphore = [_]rhi.vulkan.vk.Semaphore{swapchain.backend.vk.signal_semaphore};
+            const waitMask = [_]rhi.vulkan.vk.PipelineStageFlags{.{ .all_commands_bit = true }};
 
-                .pSignalSemaphores = signal_semaphore[0..].ptr,
-                .signalSemaphoreCount = signal_semaphore.len,
+            const signal_semaphore = [_]rhi.vulkan.vk.Semaphore{ring_element.backend.vk.semaphore};
+            const cmds = [_]rhi.vulkan.vk.CommandBuffer{ring_element.cmds[0].backend.vk.cmd};
+            var submit_info = [_]rhi.vulkan.vk.SubmitInfo{
+                .{
+                    .command_buffer_count = cmds.len,
+                    .p_command_buffers = cmds[0..].ptr,
+
+                    .wait_semaphore_count = imageAcquireSemaphore.len,
+                    .p_wait_dst_stage_mask = waitMask[0..].ptr,
+                    .p_wait_semaphores = imageAcquireSemaphore[0..].ptr,
+
+                    .p_signal_semaphores = signal_semaphore[0..].ptr,
+                    .signal_semaphore_count = signal_semaphore.len
+                }
             };
-            try rhi.vulkan.wrap_err(rhi.volk.c.vkQueueSubmit.?(device.graphics_queue.backend.vk.queue, 1, &submit_info, ring_element.backend.vk.fence.?));
-            var present_info = rhi.volk.c.VkPresentInfoKHR{
-                .sType = rhi.volk.c.VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-                .swapchainCount = 1,
-                .pSwapchains = &swapchain.backend.vk.swapchain,
-                .pImageIndices = &swapchain_index,
+            _ = try dkb.queueSubmit(device.graphics_queue.backend.vk.queue, 1, submit_info[0..].ptr, ring_element.backend.vk.fence);
+
+            //try rhi.vulkan.wrap_err(rhi.volk.c.vkQueueSubmit.?(device.graphics_queue.backend.vk.queue, 1, &submit_info, ring_element.backend.vk.fence.?));
+            var swapchains = [_]rhi.vulkan.vk.SwapchainKHR{swapchain.backend.vk.swapchain};
+            var image_indecies = [_]u32{swapchain_index};
+            var present_info = rhi.vulkan.vk.PresentInfoKHR{
+                .swapchain_count = 1,
+                .p_swapchains = swapchains[0..].ptr,
+                .p_image_indices = image_indecies[0..].ptr,
             };
-            try rhi.vulkan.wrap_err(rhi.volk.c.vkQueuePresentKHR.?(device.graphics_queue.backend.vk.queue, &present_info));
+            _ = try dkb.queuePresentKHR(device.graphics_queue.backend.vk.queue, &present_info);
         }
-
     }
     timekeeper.produce(sdl3.SDL_GetPerformanceCounter());
     return sdl3.SDL_APP_CONTINUE;

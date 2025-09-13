@@ -1,5 +1,4 @@
 const rhi = @import("rhi.zig");
-const volk = @import("volk");
 const vulkan = @import("vulkan.zig");
 const std = @import("std");
 
@@ -141,7 +140,7 @@ pub const Pool = struct {
     backend: union(rhi.Backend) {
         vk: rhi.wrapper_platform_type(.vk, struct {
             queue: *rhi.Queue,
-            pool: volk.c.VkCommandPool = null,
+            pool: rhi.vulkan.vk.CommandPool,
         }),
         dx12: rhi.wrapper_platform_type(.dx12, struct {}),
         mtl: void, // Metal does not use command pools
@@ -149,7 +148,8 @@ pub const Pool = struct {
 
     pub fn reset(self: *Self, renderer: *rhi.Renderer, device: *rhi.Device) !void {
         if (rhi.is_target_selected(.vk, renderer)) {
-            try vulkan.wrap_err(volk.c.vkResetCommandPool.?(device.backend.vk.device, self.backend.vk.pool, 0));
+            var dkb: *rhi.vulkan.vk.DeviceWrapper = &device.backend.vk.dkb;
+            try dkb.resetCommandPool(device.backend.vk.device, self.backend.vk.pool, .{});
             return;
         } else if (rhi.is_target_selected(.dx12, renderer)) {} else if (rhi.is_target_selected(.mtl, renderer)) {}
         unreachable;
@@ -157,13 +157,14 @@ pub const Pool = struct {
 
     pub fn init(renderer: *rhi.Renderer, device: *rhi.Device, queue: *rhi.Queue) !Self {
         if (rhi.is_target_selected(.vk, renderer)) {
-            var cmd_pool_create_info = volk.c.VkCommandPoolCreateInfo{
-                .sType = volk.c.VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-                .flags = volk.c.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-                .queueFamilyIndex = queue.backend.vk.family_index,
+            var dkb: *rhi.vulkan.vk.DeviceWrapper = &device.backend.vk.dkb;
+            var cmd_pool_create_info = rhi.vulkan.vk.CommandPoolCreateInfo{
+                .flags = .{
+                    .reset_command_buffer_bit = true,
+                },
+                .queue_family_index = queue.backend.vk.family_index,
             };
-            var pool: volk.c.VkCommandPool = null;
-            try vulkan.wrap_err(volk.c.vkCreateCommandPool.?(device.backend.vk.device, &cmd_pool_create_info, null, &pool));
+            const pool: rhi.vulkan.vk.CommandPool = try dkb.createCommandPool(device.backend.vk.device, &cmd_pool_create_info, null);
             return .{ .backend = .{ .vk = .{
                 .queue = queue,
                 .pool = pool,
@@ -175,13 +176,12 @@ pub const Pool = struct {
 
 pub const CommandringElement = struct {
     pub const Self = @This();
-
     cmds: []rhi.Cmd,
     pool: *rhi.Pool,
     backend: union {
         vk: rhi.wrapper_platform_type(.vk, struct {
-            semaphore: ?volk.c.VkSemaphore,
-            fence: ?volk.c.VkFence,
+            semaphore: rhi.vulkan.vk.Semaphore = .null_handle,
+            fence: rhi.vulkan.vk.Fence = .null_handle,
         }),
         dx12: rhi.wrapper_platform_type(.dx12, struct {}),
         mtl: rhi.wrapper_platform_type(.mtl, struct {}),
@@ -189,9 +189,9 @@ pub const CommandringElement = struct {
 
     pub fn wait(self: *Self, renderer: *rhi.Renderer, device: *rhi.Device) !void {
         if (rhi.is_target_selected(.vk, renderer)) {
-            if (self.backend.vk.fence) |fence| {
-                try rhi.vulkan.wrap_err(volk.c.vkWaitForFences.?(device.backend.vk.device, 1, &fence, volk.c.VK_TRUE, std.math.maxInt(u64)));
-            }
+            var dkb: *rhi.vulkan.vk.DeviceWrapper = &device.backend.vk.dkb;
+            var fences = [_]rhi.vulkan.vk.Fence{self.backend.vk.fence};
+            _ = try dkb.waitForFences(device.backend.vk.device, 1, fences[0..].ptr, .true, std.math.maxInt(u64));
         } else if (rhi.is_target_selected(.dx12, renderer)) {} else if (rhi.is_target_selected(.mtl, renderer)) {}
     }
 };
@@ -212,8 +212,8 @@ pub fn CommandRingBuffer(
         cmds: [options.pool_count][options.cmd_per_pool]rhi.Cmd,
         backend: union {
             vk: rhi.wrapper_platform_type(.vk, struct {
-                fences: if (options.sync_primative) [options.pool_count][options.cmd_per_pool]volk.c.VkFence else void,
-                semaphores: if (options.sync_primative) [options.pool_count][options.cmd_per_pool]volk.c.VkSemaphore else void,
+                fences: if (options.sync_primative) [options.pool_count][options.cmd_per_pool]rhi.vulkan.vk.Fence else void,
+                semaphores: if (options.sync_primative) [options.pool_count][options.cmd_per_pool]rhi.vulkan.vk.Semaphore else void,
             }),
             dx12: rhi.wrapper_platform_type(.dx12, struct {}),
             mtl: rhi.wrapper_platform_type(.mtl, struct {}),
@@ -239,24 +239,25 @@ pub fn CommandRingBuffer(
         }
         pub fn init(renderer: *rhi.Renderer, device: *rhi.Device, queue: *rhi.Queue) !Self {
             if (rhi.is_target_selected(.vk, renderer)) {
+                var dkb: *rhi.vulkan.vk.DeviceWrapper = &device.backend.vk.dkb;
                 var cmds: [options.pool_count][options.cmd_per_pool]rhi.Cmd = undefined;
                 var pools: [options.pool_count]rhi.Pool = undefined;
-                var semaphores: if (options.sync_primative) [options.pool_count][options.cmd_per_pool]volk.c.VkSemaphore else void = undefined;
-                var fences: if (options.sync_primative) [options.pool_count][options.cmd_per_pool]volk.c.VkFence else void = undefined;
+                var semaphores: if (options.sync_primative) [options.pool_count][options.cmd_per_pool]rhi.vulkan.vk.Semaphore else void = undefined;
+                var fences: if (options.sync_primative) [options.pool_count][options.cmd_per_pool]rhi.vulkan.vk.Fence else void = undefined;
                 for (0..options.pool_count) |pool_index| {
                     pools[pool_index] = try rhi.Pool.init(renderer, device, queue);
                     for (0..options.cmd_per_pool) |cmd_index| {
                         cmds[pool_index][cmd_index] = try rhi.Cmd.init(renderer, device, &pools[pool_index]);
                         if (options.sync_primative) {
-                            var semaphore_create_info = volk.c.VkSemaphoreCreateInfo{
-                                .sType = volk.c.VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
-                            };
-                            try vulkan.wrap_err(volk.c.vkCreateSemaphore.?(device.backend.vk.device, &semaphore_create_info, null, &semaphores[pool_index][cmd_index]));
-                            var fence_create_info = volk.c.VkFenceCreateInfo{
-                                .sType = volk.c.VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-                                .flags = volk.c.VK_FENCE_CREATE_SIGNALED_BIT,
-                            };
-                            try vulkan.wrap_err(volk.c.vkCreateFence.?(device.backend.vk.device, &fence_create_info, null, &fences[pool_index][cmd_index]));
+                            var semaphore_create_info = rhi.vulkan.vk.SemaphoreCreateInfo{ .s_type = .semaphore_create_info };
+                            semaphores[pool_index][cmd_index] = try dkb.createSemaphore(device.backend.vk.device, &semaphore_create_info, null);
+
+                            var fence_create_info = rhi.vulkan.vk.FenceCreateInfo{ .s_type = .fence_create_info, .flags = .{ .signaled_bit = true } };
+                            fences[pool_index][cmd_index] = try dkb.createFence(
+                                device.backend.vk.device,
+                                &fence_create_info,
+                                null,
+                            );
                         }
                     }
                 }
@@ -274,7 +275,7 @@ pub fn CommandRingBuffer(
 pub const Cmd = @This();
 backend: union(rhi.Backend) {
     vk: rhi.wrapper_platform_type(.vk, struct {
-        cmd: volk.c.VkCommandBuffer = null,
+        cmd: rhi.vulkan.vk.CommandBuffer,
     }),
     dx12: rhi.wrapper_platform_type(.dx12, struct {}),
     mtl: rhi.wrapper_platform_type(.mtl, struct {}),
@@ -282,38 +283,44 @@ backend: union(rhi.Backend) {
 
 pub fn init(renderer: *rhi.Renderer, device: *rhi.Device, pool: *Pool) !Cmd {
     if (rhi.is_target_selected(.vk, renderer)) {
-        var command: volk.c.VkCommandBuffer = null;
-        var command_allocate_info = volk.c.VkCommandBufferAllocateInfo{
-            .sType = volk.c.VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-            .commandPool = pool.backend.vk.pool,
-            .level = volk.c.VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-            .commandBufferCount = 1,
+        var dkb: *rhi.vulkan.vk.DeviceWrapper = &device.backend.vk.dkb;
+        var command_allocate_info = rhi.vulkan.vk.CommandBufferAllocateInfo{
+            .command_pool = pool.backend.vk.pool,
+            .level = .primary,
+            .command_buffer_count = 1,
         };
-        try vulkan.wrap_err(volk.c.vkAllocateCommandBuffers.?(device.backend.vk.device, &command_allocate_info, &command));
+        var command: [1]rhi.vulkan.vk.CommandBuffer = undefined;
+        try dkb.allocateCommandBuffers(device.backend.vk.device, &command_allocate_info, command[0..].ptr);
         return .{ .backend = .{ .vk = .{
-            .cmd = command,
+            .cmd = command[0],
         } } };
     } else if (rhi.is_target_selected(.dx12, renderer)) {} else if (rhi.is_target_selected(.mtl, renderer)) {}
     return error.UnsupportedBackend;
 }
 
-pub fn begin(self: *Cmd, renderer: *rhi.Renderer) !void {
+pub fn begin(self: *Cmd, renderer: *rhi.Renderer, device: *rhi.Device) !void {
     if (rhi.is_target_selected(.vk, renderer)) {
-        var device_group_begin_info = volk.c.VkDeviceGroupCommandBufferBeginInfoKHR{ .sType = volk.c.VK_STRUCTURE_TYPE_DEVICE_GROUP_COMMAND_BUFFER_BEGIN_INFO_KHR };
-        var begin_info = volk.c.VkCommandBufferBeginInfo{
-            .sType = volk.c.VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-            .flags = volk.c.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+        var dkb: *rhi.vulkan.vk.DeviceWrapper = &device.backend.vk.dkb;
+        var device_group_begin_info = std.mem.zeroes(rhi.vulkan.vk.DeviceGroupCommandBufferBeginInfoKHR);
+        device_group_begin_info.s_type = .device_group_command_buffer_begin_info;
+        var begin_info = rhi.vulkan.vk.CommandBufferBeginInfo{
+            .s_type = .command_buffer_begin_info,
+            .flags = .{
+                .one_time_submit_bit = true,
+            },
+            //volk.c.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
         };
         vulkan.add_next(&begin_info, &device_group_begin_info);
-        try vulkan.wrap_err(volk.c.vkBeginCommandBuffer.?(self.backend.vk.cmd, &begin_info));
+        try dkb.beginCommandBuffer(self.backend.vk.cmd, &begin_info);
         return;
     } else if (rhi.is_target_selected(.dx12, renderer)) {} else if (rhi.is_target_selected(.mtl, renderer)) {}
     unreachable;
 }
 
-pub fn end(self: *Cmd, renderer: *rhi.Renderer) !void {
+pub fn end(self: *Cmd, renderer: *rhi.Renderer, device: *rhi.Device) !void {
     if (rhi.is_target_selected(.vk, renderer)) {
-        try vulkan.wrap_err(volk.c.vkEndCommandBuffer.?(self.backend.vk.cmd));
+        var dkb: *rhi.vulkan.vk.DeviceWrapper = &device.backend.vk.dkb;
+        try dkb.endCommandBuffer(self.backend.vk.cmd);
         return;
     } else if (rhi.is_target_selected(.dx12, renderer)) {} else if (rhi.is_target_selected(.mtl, renderer)) {}
     unreachable;

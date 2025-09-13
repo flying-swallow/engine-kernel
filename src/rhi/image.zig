@@ -1,19 +1,17 @@
 const rhi = @import("rhi.zig");
-const volk = @import("volk");
 const vma = @import("vma");
 const std = @import("std");
 
 pub const Barrier = union {
-    vk: rhi.wrapper_platform_type(.vk, volk.c.VkImageMemoryBarrier2),
+    vk: rhi.wrapper_platform_type(.vk, rhi.vulkan.vk.ImageMemoryBarrier2),
     dx12: rhi.wrapper_platform_type(.dx12, struct {}),
     mtl: rhi.wrapper_platform_type(.mtl, struct {}),
 };
 
-
 pub const Image = @This();
 backend: union {
     vk: rhi.wrapper_platform_type(.vk, struct {
-        image: volk.c.VkImage,
+        image: rhi.vulkan.vk.Image,
         allocation: ?vma.c.VmaAllocation = null,
     }),
     dx12: rhi.wrapper_platform_type(.dx12, struct {}),
@@ -21,7 +19,7 @@ backend: union {
 },
 
 pub const ImageView = union {
-    vk: rhi.wrapper_platform_type(.vk, volk.c.VkImageView),
+    vk: rhi.wrapper_platform_type(.vk, rhi.vulkan.vk.ImageView),
     dx12: rhi.wrapper_platform_type(.dx12, struct {}),
     mtl: rhi.wrapper_platform_type(.mtl, struct {}),
 };

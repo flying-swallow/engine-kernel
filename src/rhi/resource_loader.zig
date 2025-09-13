@@ -1,5 +1,4 @@
 const rhi = @import("rhi.zig");
-const volk = @import("volk");
 const vma = @import("vma");
 const std = @import("std");
 const vulkan = @import("vulkan.zig");
@@ -91,13 +90,17 @@ pub fn ResourceLoader(comptime config: ResourceConfig) type {
                     .usage = vma.c.VMA_MEMORY_USAGE_AUTO,
                     .flags = vma.c.VMA_ALLOCATION_CREATE_MAPPED_BIT | vma.c.VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
                 };
-                const stage_buffer_create_info = volk.c.VkBufferCreateInfo{
-                    .sType = volk.c.VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+                const stage_buffer_create_info = rhi.vulkan.vk.BufferCreateInfo {
+                    .s_type = .buffer_create_info,
                     .size = size,
-                    .usage = volk.c.VK_BUFFER_USAGE_TRANSFER_SRC_BIT | volk.c.VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                    .usage = .{
+                        .transfer_src_bit = true,
+                        .transfer_dst_bit = true,
+                    } 
                 };
                 const vma_info = vma.c.VmaAllocationInfo{};
-                try vulkan.wrap_err(vma.c.vmaCreateBuffer(self.device.backend.vk.vma_allocator, &stage_buffer_create_info, &allocation_info, &res.backend.vk.buffer, &res.backend.vk.allocation, &vma_info));
+                try rhi.vulkan.wrap_vk_result(@enumFromInt(vma.c.vmaCreateBuffer(self.device.backend.vk.vma_allocator, &stage_buffer_create_info, &allocation_info, &res.backend.vk.buffer, &res.backend.vk.allocation, &vma_info)));
+
                 res.mapped_region = @as([*c]u8, @ptrCast(vma_info.pMappedData))[0..size];
                 break :result res;
             } else if (rhi.is_target_selected(.dx12, renderer)) {
@@ -152,10 +155,13 @@ pub fn ResourceLoader(comptime config: ResourceConfig) type {
                     .usage = vma.c.VMA_MEMORY_USAGE_AUTO,
                     .flags = vma.c.VMA_ALLOCATION_CREATE_MAPPED_BIT | vma.c.VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
                 };
-                const stage_buffer_create_info = volk.c.VkBufferCreateInfo{
-                    .sType = volk.c.VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+                const stage_buffer_create_info = rhi.vulkan.vk.BufferCreateInfo {
+                    .sType = .buffer_create_info,
                     .size = config.buffer_size,
-                    .usage = volk.c.VK_BUFFER_USAGE_TRANSFER_SRC_BIT | volk.c.VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                    .usage = .{
+                        .transfer_src_bit = true,
+                        .transfer_dst_bit = true,
+                    }
                 };
                 const vma_info = vma.c.VmaAllocationInfo{};
                 try vulkan.wrap_err(vma.c.vmaCreateBuffer(device.backend.vk.vma_allocator, &stage_buffer_create_info, &allocation_info, &res.backend.vk.buffer, &res.backend.vk.allocation, &vma_info));

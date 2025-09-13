@@ -1,12 +1,11 @@
 const rhi = @import("rhi.zig");
-const volk = @import("volk");
 const std = @import("std");
 const vulkan = @import("vulkan.zig");
 
 pub const Fence = @This();
 backend: union {
     vk: rhi.wrapper_platform_type(.vk, struct {
-        fence: volk.c.VkFence = null,
+        fence: rhi.vulkan.vk.Fence  = .null_handle,
     }),
     dx12: rhi.wrapper_platform_type(.dx12, struct {}),
     mtl: rhi.wrapper_platform_type(.mtl, struct {}),
@@ -17,15 +16,14 @@ pub const FenceStatus = enum {
     incomplete,
 };
 
-pub fn init(renderer: *rhi.Renderer, signaled: bool) !Fence {
+pub fn init(renderer: *rhi.Renderer, device: *rhi.Device, signaled: bool) !Fence {
     if (rhi.is_target_selected(.vk, renderer)) {
-        var create_info: volk.c.VkFenceCreateInfo = .{
-            .sType = volk.c.VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-            .pNext = null,
-            .flags = if (signaled) volk.c.VK_FENCE_CREATE_SIGNALED_BIT else 0,
+        var dkb: *rhi.vulkan.vk.DeviceWrapper = &device.backend.vk.dkb;
+        var create_info: rhi.vulkan.vk.FenceCreateInfo = .{
+            .flags = if (signaled) .{ .signaled_bit = true } else .{},
         };
-        var fence: volk.c.VkFence = null;
-        try rhi.vulkan.wrap_err(volk.c.vkCreateFence.?(renderer.backend.vk.device, &create_info, null, &fence));
+        //try rhi.vulkan.wrap_err(volk.c.vkCreateFence.?(renderer.backend.vk.device, &create_info, null, &fence));
+        const fence = try dkb.createFence(device.backend.vk.device, &create_info, null);
         return .{
             .backend = .{
                 .vk = .{
@@ -42,11 +40,12 @@ pub fn init(renderer: *rhi.Renderer, signaled: bool) !Fence {
 pub fn wait_for_fences(comptime reserve: usize, device: *rhi.Device, renderer: *rhi.Renderer, fences: []const *Fence) !void {
     if (rhi.is_target_selected(.vk, renderer)) {
         std.debug.assert(fences.len <= reserve);
-        var vk_fences: [reserve]volk.c.VkFence = undefined;
+        var dkb: *rhi.vulkan.vk.DeviceWrapper = &device.backend.vk.dkb;
+        var vk_fences: [reserve]rhi.vulkan.vk.Fence = undefined;
         for (fences, 0..) |fence, i| {
             vk_fences[i] = fence.backend.vk.fence;
         }
-        try vulkan.wrap_err(volk.c.vkWaitForFences(device.backend.vk.device, fences.len, vk_fences.ptr, volk.c.VK_TRUE, std.math.maxInt(u64)));
+        _ = try dkb.waitForFences(device.backend.vk.device, fences.len, vk_fences.ptr, .true, std.math.maxInt(u64));
     } else if (rhi.is_target_selected(.dx12, renderer)) {
     } else if (rhi.is_target_selected(.mtl, renderer)) {
     }
@@ -54,12 +53,13 @@ pub fn wait_for_fences(comptime reserve: usize, device: *rhi.Device, renderer: *
 
 pub fn wait_for_fences_alloc(allocator: std.mem.Allocator,device: *rhi.Device, renderer: *rhi.Renderer, fences: []const *Fence) void {
     if (rhi.is_target_selected(.vk, renderer)) {
-        var vk_fences = try allocator.alloc(volk.c.VkFence, fences.len);
+        var vk_fences = try allocator.alloc(rhi.vulkan.vk.Fence, fences.len);
+        var dkb: *rhi.vulkan.vk.DeviceWrapper = &device.backend.vk.dkb;
         defer allocator.free(vk_fences);
         for (fences, 0..) |fence, i| {
             vk_fences[i] = fence.backend.vk.fence;
         }
-        try vulkan.wrap_err(volk.c.vkWaitForFences(device.backend.vk.device, fences.len, vk_fences.ptr, volk.c.VK_TRUE, std.math.maxInt(u64)));
+        _ = try dkb.waitForFences(device.backend.vk.device, vk_fences.len, vk_fences.ptr, .true, std.math.maxInt(u64));
     } else if (rhi.is_target_selected(.dx12, renderer)) {
     } else if (rhi.is_target_selected(.mtl, renderer)) {
     }
