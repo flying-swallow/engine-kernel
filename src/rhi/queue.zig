@@ -1,21 +1,16 @@
 const rhi = @import("rhi.zig");
 const std = @import("std");
-
-
-pub const Vk = struct {
-    queue_flags: rhi.vulkan.vk.QueueFlags  = 0,
-    family_index: u32 = 0,
-    slot_index: u32 = 0,
-    queue: rhi.vulkan.vk.Queue = null,
-};
-
 pub const Queue = @This();
 backend: union(rhi.Backend) {
-    vk: rhi.wrapper_platform_type(.vk, Vk),
+    vk: rhi.wrapper_platform_type(.vk, struct { 
+        queue_flags: rhi.vulkan.vk.QueueFlags = .{}, 
+        family_index: u32 = 0, 
+        slot_index: u32 = 0, 
+        queue: rhi.vulkan.vk.Queue = .null_handle 
+    }),
     dx12: rhi.wrapper_platform_type(.dx12, struct {}),
     mtl: rhi.wrapper_platform_type(.mtl, struct {}),
 },
-
 
 pub fn submit(self: *Queue, renderer: *rhi.Renderer, device: *rhi.Device, options: struct {
     vk: ?rhi.wrapper_platform_type(.vk, struct {
@@ -26,7 +21,7 @@ pub fn submit(self: *Queue, renderer: *rhi.Renderer, device: *rhi.Device, option
     }),
     dx12: ?rhi.wrapper_platform_type(.dx12, struct {}),
     mtl: ?rhi.wrapper_platform_type(.mtl, struct {}),
-}) void{
+}) void {
     if (rhi.is_target_selected(.vk, renderer)) {
         std.debug.assert(options.vk != null);
         var submit_infos = rhi.vulkan.vk.SubmitInfo{
@@ -41,7 +36,6 @@ pub fn submit(self: *Queue, renderer: *rhi.Renderer, device: *rhi.Device, option
         };
         _ = try device.backend.vk.dkb.queueSubmit(self.backend.vk.queue, 1, &submit_infos, null);
     }
-
 }
 
 pub fn wait_queue_idle(self: *Queue, renderer: *rhi.Renderer, device: *rhi.Device) !void {

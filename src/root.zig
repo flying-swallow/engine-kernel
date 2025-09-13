@@ -2,7 +2,6 @@
 const std = @import("std");
 
 pub const rhi = @import("rhi/rhi.zig");
-pub const volk = @import("volk");
 
 pub const TimeKeeper = @import("time_keeper.zig");
 

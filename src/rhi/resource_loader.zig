@@ -99,7 +99,8 @@ pub fn ResourceLoader(comptime config: ResourceConfig) type {
                     } 
                 };
                 const vma_info = vma.c.VmaAllocationInfo{};
-                try vulkan.wrap_err(vma.c.vmaCreateBuffer(self.device.backend.vk.vma_allocator, &stage_buffer_create_info, &allocation_info, &res.backend.vk.buffer, &res.backend.vk.allocation, &vma_info));
+                try rhi.vulkan.wrap_vk_result(@enumFromInt(vma.c.vmaCreateBuffer(self.device.backend.vk.vma_allocator, &stage_buffer_create_info, &allocation_info, &res.backend.vk.buffer, &res.backend.vk.allocation, &vma_info)));
+
                 res.mapped_region = @as([*c]u8, @ptrCast(vma_info.pMappedData))[0..size];
                 break :result res;
             } else if (rhi.is_target_selected(.dx12, renderer)) {

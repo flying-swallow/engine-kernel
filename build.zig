@@ -31,17 +31,6 @@ pub fn build(b: *std.Build) !void {
         .linkage = .static, 
         .root_module = engine_module 
     });
-   
-    if (b.lazyDependency("volk", .{
-        .target = target,
-        .optimize = optimize,
-    })) |volk_dep| {
-        engine_module.addImport(
-            "volk",
-            volk_dep.module("volk"),
-        );
-        engine_module.linkLibrary(volk_dep.artifact("volk"));
-    }
 
     if(b.lazyDependency("vma", .{
         .target = target,

@@ -4,20 +4,12 @@ const std = @import("std");
 const assert = std.debug.assert;
 const builtin = @import("builtin");
 
-//pub const Vk = struct {
-//    api_version: u32, 
-//    instance: rhi.vulkan.vk.Instance, 
-//    debug_message_utils: rhi.vulkan.vk.DebugUtilsMessengerEXT,
-//    vkb: rhi.vulkan.vk.BaseWrapper,
-//    ikb: rhi.vulkan.vk.InstanceWrapper
-//};
-
 pub const Renderer = @This();
 backend: union(rhi.Backend) {
     vk: rhi.wrapper_platform_type(.vk, struct {
         api_version: u32, 
         instance: rhi.vulkan.vk.Instance, 
-        debug_message_utils: rhi.vulkan.vk.DebugUtilsMessengerEXT,
+        debug_message_utils: ?rhi.vulkan.vk.DebugUtilsMessengerEXT,
         vkb: rhi.vulkan.vk.BaseWrapper,
         ikb: rhi.vulkan.vk.InstanceWrapper
     }),
@@ -160,7 +152,7 @@ pub fn init(alloc: std.mem.Allocator, impl: union(rhi.Backend) {
                     //    useLayer |= std.mem.indexOf(u8, opt.filterLayers, layerProperties.?[i].layerName) != null;
                     //}
                     if (useLayer) {
-                        try enabled_layer_names.append(alloc, std.mem.sliceTo(&layerProperties.?[i].layer_name, 0)[0..:0]);
+                        try enabled_layer_names.append(alloc, @ptrCast(std.mem.sliceTo(layerProperties.?[i].layer_name[0..], 0)));
                     }
                 }
             }
@@ -179,7 +171,7 @@ pub fn init(alloc: std.mem.Allocator, impl: union(rhi.Backend) {
                     if (builtin.os.tag == .windows) {
                         useExtension |= std.mem.eql(u8, extensionSlice, rhi.vulkan.vk.extensions.khr_win_32_surface.name);
                     } else if (builtin.os.tag == .linux) {
-                        useExtension |= std.mem.eql(u8, extensionSlice, rhi.vulkan.vk.extensions.ext_acquire_xlib_display.name) or
+                        useExtension |= std.mem.eql(u8, extensionSlice, rhi.vulkan.vk.extensions.khr_xlib_surface.name) or
                             std.mem.eql(u8, extensionSlice, rhi.vulkan.vk.extensions.khr_wayland_surface.name);
                     } else if (builtin.os.tag == .macos) {
                         useExtension |= std.mem.eql(u8, extensionSlice, rhi.vulkan.vk.extensions.ext_metal_surface.name);
@@ -189,7 +181,7 @@ pub fn init(alloc: std.mem.Allocator, impl: union(rhi.Backend) {
                     useExtension |= std.mem.eql(u8, extensionSlice, rhi.vulkan.vk.extensions.ext_debug_utils.name);
                     std.debug.print("Instance Extension: {s}({d}): {s}\n", .{ extensionSlice, extProperties.?[i].spec_version, if (useExtension) "ENABLED" else "DISABLED" });
                     if (useExtension) {
-                        try enabled_extension_names.append(alloc, std.mem.sliceTo(extProperties.?[i].extension_name[0..], 0)[0..:0]);
+                        try enabled_extension_names.append(alloc, @ptrCast(std.mem.sliceTo(extProperties.?[i].extension_name[0..], 0)));
                     }
                 }
             }
@@ -205,11 +197,10 @@ pub fn init(alloc: std.mem.Allocator, impl: union(rhi.Backend) {
             if (impl.vk.enable_validation_layer) {
                 vulkan.add_next(&instanceCreateInfo, &validationFeatures);
             }
-            var instance: rhi.vulkan.vk.Instance = undefined;
-            try vulkan.wrap_err(loader.createInstance(&instanceCreateInfo, null, &instance));
+            const instance: rhi.vulkan.vk.Instance = try loader.createInstance(&instanceCreateInfo, null);
             var instance_wrapper = rhi.vulkan.vk.InstanceWrapper.load(instance, loader.dispatch.vkGetInstanceProcAddr.?);
 
-            var debug_message_util: rhi.vulkan.vk.DebugUtilsMessengerEXT = null;
+            var debug_message_util: ?rhi.vulkan.vk.DebugUtilsMessengerEXT = null;
             if (impl.vk.enable_validation_layer and instance_wrapper.dispatch.vkCreateDebugUtilsMessengerEXT != null) {
                 var debug_create_info = rhi.vulkan.vk.DebugUtilsMessengerCreateInfoEXT{ 
                     .s_type = .debug_utils_messenger_create_info_ext,
@@ -225,11 +216,11 @@ pub fn init(alloc: std.mem.Allocator, impl: union(rhi.Backend) {
                         .performance_bit_ext = true
                     }
                 };
-               debug_message_util = try instance_wrapper.createDebugUtilsMessengerEXT(instance, &debug_create_info, &debug_message_util, null); 
+               debug_message_util = try instance_wrapper.createDebugUtilsMessengerEXT(instance, &debug_create_info, null); 
             }
 
             return Renderer{ .backend = .{ .vk = .{
-                .api_version = app_info.apiVersion,
+                .api_version = app_info.api_version,
                 .instance = instance,
                 .ikb = instance_wrapper,
                 .debug_message_utils = debug_message_util,

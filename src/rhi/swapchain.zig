@@ -47,8 +47,8 @@ height: u16,
 backend: union(rhi.Backend) {
     vk: rhi.wrapper_platform_type(.vk, struct {
         format: rhi.vulkan.vk.Format,
-        swapchain: rhi.vulkan.vk.SwapchainKHR = null,
-        surface: rhi.vulkan.vk.SurfaceKHR = null,
+        swapchain: rhi.vulkan.vk.SwapchainKHR,
+        surface: rhi.vulkan.vk.SurfaceKHR,
         images: []rhi.vulkan.vk.Image,
         views: []rhi.vulkan.vk.ImageView,
         signal_semaphore: rhi.vulkan.vk.Semaphore,
@@ -121,7 +121,7 @@ pub fn deinit(self: *Swapchain) void {
 
 pub fn acquire_next_image(self: *Swapchain, renderer: *rhi.Renderer, device: *rhi.Device, options: struct {
     vk: ?rhi.wrapper_platform_type(.vk, struct {
-        fence: rhi.vulkan.vk.Fence = null,
+        fence: rhi.vulkan.vk.Fence,
     }),
     dx12: ?rhi.wrapper_platform_type(.dx12, struct {}),
     mtl: ?rhi.wrapper_platform_type(.mtl, struct {}),
@@ -129,8 +129,8 @@ pub fn acquire_next_image(self: *Swapchain, renderer: *rhi.Renderer, device: *rh
     if (rhi.is_target_selected(.vk, renderer)) {
         var dkb: *rhi.vulkan.vk.DeviceWrapper = &device.backend.vk.dkb;
         std.debug.assert(options.vk != null);
-        const image_index = try dkb.acquireNextImageKHR(device.backend.vk.device, self.backend.vk.swapchain, std.math.maxInt(u64), self.backend.vk.signal_semaphore, null);
-        return image_index;
+        const res = try dkb.acquireNextImageKHR(device.backend.vk.device, self.backend.vk.swapchain, std.math.maxInt(u64), self.backend.vk.signal_semaphore, options.vk.?.fence);
+        return res.image_index;
     } else if (rhi.is_target_selected(.dx12, renderer)) {} else if (rhi.is_target_selected(.mtl, renderer)) {}
     return error.UnsupportedBackend;
 }
@@ -153,7 +153,6 @@ pub fn init(allocator: std.mem.Allocator, renderer: *rhi.Renderer, device: *rhi.
                     break :p try ikb.createXlibSurfaceKHR(renderer.backend.vk.instance, &xlib_surface_create, null);
                 },
                 .wayland => |val| {
-                    
                     var wayland_surface_create: rhi.vulkan.vk.WaylandSurfaceCreateInfoKHR = .{
                         .s_type = .wayland_surface_create_info_khr,
                         .display = @ptrCast(val.display),
@@ -168,13 +167,13 @@ pub fn init(allocator: std.mem.Allocator, renderer: *rhi.Renderer, device: *rhi.
         };
         const avaliable_surface_formats = p: {
             var numSurfaceFormats: u32 = 0;
-            try vulkan.wrap_err(volk.c.vkGetPhysicalDeviceSurfaceFormatsKHR.?(device.adapter.backend.vk.physical_device, surface, &numSurfaceFormats, null));
-            const surface_formats = try allocator.alloc(volk.c.VkSurfaceFormatKHR, numSurfaceFormats);
-            try vulkan.wrap_err(volk.c.vkGetPhysicalDeviceSurfaceFormatsKHR.?(device.adapter.backend.vk.physical_device, surface, &numSurfaceFormats, surface_formats.ptr));
+            _ = try ikb.getPhysicalDeviceSurfaceFormatsKHR(device.adapter.backend.vk.physical_device, surface, &numSurfaceFormats, null);
+            const surface_formats = try allocator.alloc(rhi.vulkan.vk.SurfaceFormatKHR, numSurfaceFormats);
+            _ = try ikb.getPhysicalDeviceSurfaceFormatsKHR(device.adapter.backend.vk.physical_device, surface, &numSurfaceFormats, surface_formats.ptr);
             break :p surface_formats;
         };
         defer allocator.free(avaliable_surface_formats);
-        var selected_surface: *const volk.c.VkSurfaceFormatKHR = &avaliable_surface_formats[0];
+        var selected_surface: *const rhi.vulkan.vk.SurfaceFormatKHR = &avaliable_surface_formats[0];
         const selection_fn = switch (option.format) {
             .bt709_g10_16bit => &__priority_BT709_G22_16BIT,
             .bt709_g22_8bit => &__priority_BT709_G22_8BIT,
@@ -189,17 +188,21 @@ pub fn init(allocator: std.mem.Allocator, renderer: *rhi.Renderer, device: *rhi.
 
         const avaliable_present_modes = p: {
             var numSurfaceFormats: u32 = 0;
-            try vulkan.wrap_err(volk.c.vkGetPhysicalDeviceSurfacePresentModesKHR.?(device.adapter.backend.vk.physical_device, surface, &numSurfaceFormats, null));
-            const present_modes = try allocator.alloc(volk.c.VkPresentModeKHR, numSurfaceFormats);
-            try vulkan.wrap_err(volk.c.vkGetPhysicalDeviceSurfacePresentModesKHR.?(device.adapter.backend.vk.physical_device, surface, &numSurfaceFormats, present_modes.ptr));
+            _ = try ikb.getPhysicalDeviceSurfacePresentModesKHR(device.adapter.backend.vk.physical_device, surface, &numSurfaceFormats, null);
+            const present_modes = try allocator.alloc(rhi.vulkan.vk.PresentModeKHR, numSurfaceFormats);
+            _ = try ikb.getPhysicalDeviceSurfacePresentModesKHR(device.adapter.backend.vk.physical_device, surface, &numSurfaceFormats, present_modes.ptr);
             break :p present_modes;
         };
         defer allocator.free(avaliable_present_modes);
 
         // The VK_PRESENT_MODE_FIFO_KHR mode must always be present as per spec
         // This mode waits for the vertical blank ("v-sync")
-        const present_mode: volk.c.VkPresentModeKHR = found: {
-            const preferred_mode_list = [_]volk.c.VkPresentModeKHR{ volk.c.VK_PRESENT_MODE_IMMEDIATE_KHR, volk.c.VK_PRESENT_MODE_FIFO_RELAXED_KHR, volk.c.VK_PRESENT_MODE_FIFO_KHR };
+        const present_mode: rhi.vulkan.vk.PresentModeKHR = found: {
+            const preferred_mode_list = [_]rhi.vulkan.vk.PresentModeKHR{
+                .immediate_khr,
+                .fifo_relaxed_khr,
+                .fifo_khr,
+            };
             for (preferred_mode_list) |preferred_mode| {
                 for (avaliable_present_modes) |avil| {
                     if (avil == preferred_mode) {
@@ -207,39 +210,42 @@ pub fn init(allocator: std.mem.Allocator, renderer: *rhi.Renderer, device: *rhi.
                     }
                 }
             }
-            break :found volk.c.VK_PRESENT_MODE_FIFO_KHR;
+            break :found .fifo_khr;
         };
 
-        var swapchain_create_info: volk.c.VkSwapchainCreateInfoKHR = .{
-            .sType = volk.c.VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+        var swapchain_create_info: rhi.vulkan.vk.SwapchainCreateInfoKHR = .{
             .surface = surface,
-            .minImageCount = option.image_count,
-            .imageFormat = selected_surface.format,
-            .imageColorSpace = selected_surface.colorSpace,
-            .imageExtent = volk.c.VkExtent2D{
+            .min_image_count = option.image_count,
+            .image_format = selected_surface.format,
+            .image_color_space = selected_surface.color_space,
+            .image_extent = .{
                 .width = width,
                 .height = height,
             },
-            .imageArrayLayers = 1,
-            .imageUsage = volk.c.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | volk.c.VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-            .imageSharingMode = volk.c.VK_SHARING_MODE_EXCLUSIVE,
-            .queueFamilyIndexCount = 0,
-            .pQueueFamilyIndices = null,
-            .preTransform = volk.c.VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
-            .compositeAlpha = volk.c.VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-            .presentMode = present_mode,
-            .clipped = volk.c.VK_TRUE,
-            .oldSwapchain = null,
-            .flags = 0,
+            .image_array_layers = 1,
+            .image_usage = .{
+                .color_attachment_bit = true,
+                .transfer_src_bit = true,
+            },
+            .image_sharing_mode = .exclusive,
+            .queue_family_index_count = 0,
+            .p_queue_family_indices = null,
+            .pre_transform = .{
+                .identity_bit_khr = true,
+            },
+            .composite_alpha = .{
+                .opaque_bit_khr = true,
+            },
+            .present_mode = present_mode,
+            .clipped = .true,
         };
-        var swapchain: volk.c.VkSwapchainKHR = null;
-        try vulkan.wrap_err(volk.c.vkCreateSwapchainKHR.?(device.backend.vk.device, &swapchain_create_info, null, &swapchain));
+        const swapchain: rhi.vulkan.vk.SwapchainKHR = try dkb.createSwapchainKHR(device.backend.vk.device, &swapchain_create_info, null);
 
         const images = p: {
             var imageNum: u32 = 0;
-            try vulkan.wrap_err(volk.c.vkGetSwapchainImagesKHR.?(device.backend.vk.device, swapchain, &imageNum, null));
-            const res = try allocator.alloc(volk.c.VkImage, imageNum);
-            try vulkan.wrap_err(volk.c.vkGetSwapchainImagesKHR.?(device.backend.vk.device, swapchain, &imageNum, res.ptr));
+            _ = try dkb.getSwapchainImagesKHR(device.backend.vk.device, swapchain, &imageNum, null);
+            const res = try allocator.alloc(rhi.vulkan.vk.Image, imageNum);
+            _ = try dkb.getSwapchainImagesKHR(device.backend.vk.device, swapchain, &imageNum, res.ptr);
             break :p res;
         };
         errdefer allocator.free(images);
@@ -249,41 +255,41 @@ pub fn init(allocator: std.mem.Allocator, renderer: *rhi.Renderer, device: *rhi.
         //errdefer allocator.free(semaphores_acquire);
         //var semaphores_finish = try allocator.alloc(volk.c.VkSemaphore, images.len);
         //errdefer allocator.free(semaphores_finish);
-        const image_views = try allocator.alloc(volk.c.VkImageView, images.len);
+        const image_views = try allocator.alloc(rhi.vulkan.vk.ImageView, images.len);
         errdefer allocator.free(image_views);
-        var create_info: volk.c.VkSemaphoreCreateInfo = .{ .sType = volk.c.VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
-        var signal_semaphore: volk.c.VkSemaphore = null;
-        try vulkan.wrap_err(volk.c.vkCreateSemaphore.?(device.backend.vk.device, &create_info, null, &signal_semaphore));
+        var create_info: rhi.vulkan.vk.SemaphoreCreateInfo = .{ .s_type = .semaphore_create_info };
+        //var signal_semaphore: rhi.vulkan.vk.Semaphore = null;
+        //try vulkan.wrap_err(volk.c.vkCreateSemaphore.?(device.backend.vk.device, &create_info, null, &signal_semaphore));
+        const signal_semaphore = try dkb.createSemaphore(device.backend.vk.device, &create_info, null);
 
-        {
-            var k: usize = 0;
-            while (k < images.len) : (k += 1) {
-                //var timeline_create_info: volk.c.VkSemaphoreTypeCreateInfo = .{ .sType = volk.c.VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO, .semaphoreType = volk.c.VK_SEMAPHORE_TYPE_BINARY };
-                //vulkan.add_next(&create_info, &timeline_create_info);
-                //try vulkan.wrap_err(volk.c.vkCreateSemaphore.?(device.backend.vk.device, &create_info, null, &semaphores_acquire[k]));
-                //try vulkan.wrap_err(volk.c.vkCreateSemaphore.?(device.backend.vk.device, &create_info, null, &semaphores_finish[k]));
+        for (0..images.len) |k| {
+            //var timeline_create_info: volk.c.VkSemaphoreTypeCreateInfo = .{ .sType = volk.c.VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO, .semaphoreType = volk.c.VK_SEMAPHORE_TYPE_BINARY };
+            //vulkan.add_next(&create_info, &timeline_create_info);
+            //try vulkan.wrap_err(volk.c.vkCreateSemaphore.?(device.backend.vk.device, &create_info, null, &semaphores_acquire[k]));
+            //try vulkan.wrap_err(volk.c.vkCreateSemaphore.?(device.backend.vk.device, &create_info, null, &semaphores_finish[k]));
 
-                const view_create_info: rhi.vulkan.vk.ImageViewCreateInfo = .{
-                    .s_type = .image_view_create_info,
-                    .image = images[k],
-                    .view_type = .@"2d",
-                    .format = selected_surface.format,
-                    .components = .{
-                        .r = .identity,
-                        .g = .identity,
-                        .b = .identity,
-                        .a = .identity,
+            const view_create_info: rhi.vulkan.vk.ImageViewCreateInfo = .{
+                .s_type = .image_view_create_info,
+                .image = images[k],
+                .view_type = .@"2d",
+                .format = selected_surface.format,
+                .components = .{
+                    .r = .identity,
+                    .g = .identity,
+                    .b = .identity,
+                    .a = .identity,
+                },
+                .subresource_range = .{
+                    .aspect_mask = .{
+                        .color_bit = true,
                     },
-                    .subresource_range = .{
-                        .aspect_mask = volk.c.VK_IMAGE_ASPECT_COLOR_BIT,
-                        .base_mip_level = 0,
-                        .level_count = 1,
-                        .base_array_layer = 0,
-                        .layer_count = 1,
-                    },
-                };
-                try vulkan.wrap_err(volk.c.vkCreateImageView.?(device.backend.vk.device, &view_create_info, null, &image_views[k]));
-            }
+                    .base_mip_level = 0,
+                    .level_count = 1,
+                    .base_array_layer = 0,
+                    .layer_count = 1,
+                },
+            };
+            image_views[k] = try dkb.createImageView(device.backend.vk.device, &view_create_info, null);
         }
 
         return Swapchain{
@@ -303,4 +309,5 @@ pub fn init(allocator: std.mem.Allocator, renderer: *rhi.Renderer, device: *rhi.
             },
         };
     }
+    unreachable;
 }

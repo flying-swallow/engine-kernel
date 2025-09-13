@@ -2,9 +2,9 @@ const rhi = @import("rhi.zig");
 const vma = @import("vma");
 const std = @import("std");
 const vulkan = @import("vulkan.zig");
+const builtin = @import("builtin");
 
 pub const Device = @This();
-
 graphics_queue: rhi.Queue,
 compute_queue: ?rhi.Queue,
 transfer_queue: ?rhi.Queue,
@@ -23,7 +23,7 @@ backend: union {
     mtl: rhi.wrapper_platform_type(.mtl, struct {}),
 } = undefined,
 
-fn supports_extension(extensions: [][*c]const u8, value: []const u8) bool {
+fn supports_extension(extensions: [][*:0]const u8, value: []const u8) bool {
     for (extensions) |ext| {
         if (std.mem.eql(u8, std.mem.sliceTo(ext, 0), value)) {
             return true;
@@ -31,15 +31,17 @@ fn supports_extension(extensions: [][*c]const u8, value: []const u8) bool {
     }
     return false;
 }
-        
+
 pub fn init(allocator: std.mem.Allocator, renderer: *rhi.Renderer, adapter: *rhi.PhysicalAdapter) !Device {
     if (rhi.is_target_selected(.vk, renderer)) {
+        const ikb: *rhi.vulkan.vk.InstanceWrapper = &renderer.backend.vk.ikb;
+        const vkb: *rhi.vulkan.vk.BaseWrapper = &renderer.backend.vk.vkb;
         var extension_num: u32 = 0;
         _ = try renderer.backend.vk.ikb.enumerateDeviceExtensionProperties(adapter.backend.vk.physical_device, null, &extension_num, null);
         const extension_properties: []rhi.vulkan.vk.ExtensionProperties = try allocator.alloc(rhi.vulkan.vk.ExtensionProperties, extension_num);
         defer allocator.free(extension_properties);
         _ = try renderer.backend.vk.ikb.enumerateDeviceExtensionProperties(adapter.backend.vk.physical_device, null, &extension_num, extension_properties.ptr);
-        var enabled_extension_names = std.ArrayList([*c]const u8).empty;
+        var enabled_extension_names = std.ArrayList([*:0]const u8).empty;
         defer enabled_extension_names.deinit(allocator);
 
         for (vulkan.default_device_extensions) |default_ext| {
@@ -47,6 +49,7 @@ pub fn init(allocator: std.mem.Allocator, renderer: *rhi.Renderer, adapter: *rhi
                 try enabled_extension_names.append(allocator, default_ext);
             }
         }
+
 
         const queue_family_props = ret_props: {
             var familyNum: u32 = 0;
@@ -69,7 +72,7 @@ pub fn init(allocator: std.mem.Allocator, renderer: *rhi.Renderer, adapter: *rhi
                     queue_feature.appendAssumeCapacity("VK_QUEUE_GRAPHICS_BIT");
                 if (queue_family_props[i].queue_flags.compute_bit)
                     queue_feature.appendAssumeCapacity("VK_QUEUE_COMPUTE_BIT");
-                if (queue_family_props[i].queue_flags .transfer_bit)
+                if (queue_family_props[i].queue_flags.transfer_bit)
                     queue_feature.appendAssumeCapacity("VK_QUEUE_TRANSFER_BIT");
                 if (queue_family_props[i].queue_flags.sparse_binding_bit)
                     queue_feature.appendAssumeCapacity("VK_QUEUE_SPARSE_BINDING_BIT");
@@ -88,28 +91,27 @@ pub fn init(allocator: std.mem.Allocator, renderer: *rhi.Renderer, adapter: *rhi
             }
         }
 
-
         var rhi_queues: [3]?rhi.Queue = .{null} ** 3;
         const configured = [_]struct {
             required_bits: rhi.vulkan.vk.QueueFlags,
         }{
-            .{ .required_bits = .{.graphics_bit = true}},
-            .{ .required_bits = .{.compute_bit = true }},
-            .{ .required_bits  = .{.transfer_bit = true }},
+            .{ .required_bits = .{ .graphics_bit = true } },
+            .{ .required_bits = .{ .compute_bit = true } },
+            .{ .required_bits = .{ .transfer_bit = true } },
         };
         for (configured, 0..) |config, config_idx| {
             var min_queue_flags: u32 = std.math.maxInt(u32);
-            var best_queue_family_idx: u32 = 0;
-            for(0..queue_family_props.len) |family_idx| {
+            var best_queue_family_idx: usize = 0;
+            for (0..queue_family_props.len) |family_idx| {
                 const queue_family_prop = &queue_family_props[family_idx];
-                if(config_idx == 0 and  queue_family_prop.queue_flags.contains(config.required_bits)) {
+                if (config_idx == 0 and queue_family_prop.queue_flags.contains(config.required_bits)) {
                     best_queue_family_idx = family_idx;
                     break;
                 }
 
                 const queue_create_info = p: {
                     for (device_queue_create_info.items) |item| {
-                        if (item.queueFamilyIndex == family_idx) {
+                        if (item.queue_family_index == family_idx) {
                             break :p &item;
                         }
                     }
@@ -144,27 +146,27 @@ pub fn init(allocator: std.mem.Allocator, renderer: *rhi.Renderer, adapter: *rhi
                 }
                 try device_queue_create_info.append(allocator, .{
                     .s_type = .device_queue_create_info,
-                    .queue_family_index = best_queue_family_idx,
+                    .queue_family_index = @intCast(best_queue_family_idx),
                     .queue_count = 0,
                     .p_queue_priorities = &priorities,
                 });
                 break :p &device_queue_create_info.items[device_queue_create_info.items.len - 1];
             };
             // we've run out of queues in this family, try to find a duplicate queue from other families
-            if (queue_create_info.queueCount >= queue_family_props[queue_create_info.queueFamilyIndex].queueCount) {
+            if (queue_create_info.queue_count >= queue_family_props[queue_create_info.queue_family_index].queue_count) {
                 min_queue_flags = std.math.maxInt(u32);
                 var dup_queue: ?*rhi.Queue = null;
                 var i: usize = 0;
                 while (i < rhi_queues.len) : (i += 1) {
                     if (rhi_queues[i]) |*eq| {
-                        const matching_queue_flags: u32 = (eq.backend.vk.queue_flags & config.required_bits);
-                        if ((matching_queue_flags > 0) and ((eq.backend.vk.queue_flags & ~config.required_bits) == 0)) {
+                        const matching_queue_flags = eq.backend.vk.queue_flags.intersect(config.required_bits);
+                        if ((matching_queue_flags.toInt() > 0) and ((eq.backend.vk.queue_flags.toInt() & ~config.required_bits.toInt()) == 0)) {
                             dup_queue = eq;
                             break;
                         }
 
-                        if ((matching_queue_flags > 0) and ((eq.backend.vk.queue_flags - matching_queue_flags) < min_queue_flags)) {
-                            min_queue_flags = (eq.backend.vk.queue_flags - matching_queue_flags);
+                        if ((matching_queue_flags.toInt() > 0) and ((eq.backend.vk.queue_flags.toInt() - matching_queue_flags.toInt()) < min_queue_flags)) {
+                            min_queue_flags = (eq.backend.vk.queue_flags.toInt() - matching_queue_flags.toInt());
                             dup_queue = eq;
                         }
                     }
@@ -175,18 +177,18 @@ pub fn init(allocator: std.mem.Allocator, renderer: *rhi.Renderer, adapter: *rhi
             } else {
                 rhi_queues[config_idx] = rhi.Queue{
                     .backend = .{ .vk = .{
-                        .queue_flags = queue_family_props[queue_create_info.queueFamilyIndex].queueFlags,
-                        .family_index = queue_create_info.queueFamilyIndex,
-                        .slot_index = queue_create_info.queueCount,
-                        .queue = null,
+                        .queue_flags = queue_family_props[queue_create_info.queue_family_index].queue_flags,
+                        .family_index = queue_create_info.queue_family_index,
+                        .slot_index = queue_create_info.queue_count,
                     } },
                 };
-                queue_create_info.queueCount += 1;
+                queue_create_info.queue_count += 1;
             }
         }
         const has_maintenance_5 = supports_extension(enabled_extension_names.items, rhi.vulkan.vk.extensions.khr_maintenance_5.name);
-        var features: rhi.vulkan.vk.PhysicalDeviceFeatures2  = .{ 
-            .s_type = .physical_device_features_2
+        var features: rhi.vulkan.vk.PhysicalDeviceFeatures2 = .{
+            .s_type = .physical_device_features_2,
+            .features = std.mem.zeroes(rhi.vulkan.vk.PhysicalDeviceFeatures),
         };
 
         var features11: rhi.vulkan.vk.PhysicalDeviceVulkan11Features = .{ .s_type = .physical_device_vulkan_1_1_features };
@@ -196,14 +198,11 @@ pub fn init(allocator: std.mem.Allocator, renderer: *rhi.Renderer, adapter: *rhi
         vulkan.add_next(&features, &features12);
 
         var features13: rhi.vulkan.vk.PhysicalDeviceVulkan13Features = .{ .s_type = .physical_device_vulkan_1_3_features };
-        if (renderer.backend.vk.api_version >= @as(u32,@bitCast(rhi.vulkan.vk.API_VERSION_1_3))) {
+        if (renderer.backend.vk.api_version >= @as(u32, @bitCast(rhi.vulkan.vk.API_VERSION_1_3))) {
             vulkan.add_next(&features, &features13);
         }
 
-        var maintenance5Features: rhi.vulkan.vk.PhysicalDeviceMaintenance5FeaturesKHR= .{ 
-            .s_type = .physical_device_maintenance_5_features_khr
-
-        };
+        var maintenance5Features: rhi.vulkan.vk.PhysicalDeviceMaintenance5FeaturesKHR = .{ .s_type = .physical_device_maintenance_5_features_khr };
         if (has_maintenance_5) {
             vulkan.add_next(&features, &maintenance5Features);
         }
@@ -225,60 +224,66 @@ pub fn init(allocator: std.mem.Allocator, renderer: *rhi.Renderer, adapter: *rhi
         renderer.backend.vk.ikb.getPhysicalDeviceFeatures2(adapter.backend.vk.physical_device, &features);
         //renderer.backend.vk.ikb.dispatch.vkGetPhysicalDeviceFeatures2.?(adapter.backend.vk.physical_device, &features);
         var device_create_info: rhi.vulkan.vk.DeviceCreateInfo = .{ 
-            .s_type = .device_create_info, 
             .p_next = &features, 
             .p_queue_create_infos = device_queue_create_info.items.ptr, 
             .queue_create_info_count = @intCast(device_queue_create_info.items.len), 
             .pp_enabled_extension_names = enabled_extension_names.items.ptr, 
             .enabled_extension_count = @intCast(enabled_extension_names.items.len) 
         };
-        var device: rhi.vulkan.vk.Device = null;
-        _ = try renderer.backend.vk.ikb.createDevice(adapter.backend.vk.physical_device, &device_create_info, null, &device);
-        //try vulkan.wrap_err(renderer.backend.vk.ikb.dispatch.vkCreateDevice.?(adapter.backend.vk.physical_device, &device_create_info, null, &device));
-        const dkb = rhi.vulkan.vk.DeviceWrapper.load(device, renderer.backend.vk.vkb.dispatch.vkGetDeviceProcAddr.?);
+        const device: rhi.vulkan.vk.Device = try ikb.createDevice(adapter.backend.vk.physical_device, &device_create_info, null);
+        const dkb = rhi.vulkan.vk.DeviceWrapper.load(device, ikb.dispatch.vkGetDeviceProcAddr.?);
 
         const vma_allocator: vma.c.VmaAllocator = p: {
             const vulkan_func: vma.c.VmaVulkanFunctions = .{
-                .vkGetPhysicalDeviceProperties = @ptrCast(renderer.backend.vk.ikb.dispatch.vkGetPhysicalDeviceProperties),
-                .vkGetInstanceProcAddr = @ptrCast(renderer.backend.vk.ikb.dispatch.vkGetInstanceProcAddr),
-                .vkGetDeviceProcAddr = @ptrCast(renderer.backend.vk.ikb.dispatch.vkGetDeviceProcAddr),
-                .vkGetPhysicalDeviceMemoryProperties = @ptrCast(renderer.backend.vk.ikb.dispatch.vkGetPhysicalDeviceMemoryProperties),
-                .vkAllocateMemory = @ptrCast(renderer.backend.vk.ikb.dispatch.vkAllocateMemory),
-                .vkFreeMemory = @ptrCast(renderer.backend.vk.ikb.dispatch.vkFreeMemory),
-                .vkMapMemory = @ptrCast(renderer.backend.vk.ikb.dispatch.vkMapMemory),
-                .vkUnmapMemory = @ptrCast(renderer.backend.vk.ikb.dispatch.vkUnmapMemory),
-                .vkFlushMappedMemoryRanges = @ptrCast(renderer.backend.vk.ikb.dispatch.vkFlushMappedMemoryRanges),
-                .vkInvalidateMappedMemoryRanges = @ptrCast(renderer.backend.vk.ikb.dispatch.vkInvalidateMappedMemoryRanges),
-                .vkBindBufferMemory = @ptrCast(renderer.backend.vk.ikb.dispatch.vkBindBufferMemory),
-                .vkBindImageMemory = @ptrCast(renderer.backend.vk.ikb.dispatch.vkBindImageMemory),
-                .vkGetBufferMemoryRequirements = @ptrCast(renderer.backend.vk.ikb.dispatch.vkGetBufferMemoryRequirements),
-                .vkGetImageMemoryRequirements = @ptrCast(renderer.backend.vk.ikb.dispatch.vkGetImageMemoryRequirements),
-                .vkCreateBuffer = @ptrCast(renderer.backend.vk.ikb.dispatch.vkCreateBuffer),
-                .vkDestroyBuffer = @ptrCast(renderer.backend.vk.ikb.dispatch.vkDestroyBuffer),
-                .vkCreateImage = @ptrCast(renderer.backend.vk.ikb.dispatch.vkCreateImage),
-                .vkDestroyImage = @ptrCast(renderer.backend.vk.ikb.dispatch.vkDestroyImage),
-                .vkCmdCopyBuffer = @ptrCast(renderer.backend.vk.ikb.dispatch.vkCmdCopyBuffer),
+                .vkGetPhysicalDeviceProperties = @ptrCast(ikb.dispatch.vkGetPhysicalDeviceProperties),
+                .vkGetInstanceProcAddr = @ptrCast(vkb.dispatch.vkGetInstanceProcAddr),
+                .vkGetDeviceProcAddr = @ptrCast(ikb.dispatch.vkGetDeviceProcAddr),
+                .vkGetPhysicalDeviceMemoryProperties = @ptrCast(ikb.dispatch.vkGetPhysicalDeviceMemoryProperties),
+                .vkAllocateMemory = @ptrCast(dkb.dispatch.vkAllocateMemory),
+                .vkFreeMemory = @ptrCast(dkb.dispatch.vkFreeMemory),
+                .vkMapMemory = @ptrCast(dkb.dispatch.vkMapMemory),
+                .vkUnmapMemory = @ptrCast(dkb.dispatch.vkUnmapMemory),
+                .vkFlushMappedMemoryRanges = @ptrCast(dkb.dispatch.vkFlushMappedMemoryRanges),
+                .vkInvalidateMappedMemoryRanges = @ptrCast(dkb.dispatch.vkInvalidateMappedMemoryRanges),
+                .vkBindBufferMemory = @ptrCast(dkb.dispatch.vkBindBufferMemory),
+                .vkBindImageMemory = @ptrCast(dkb.dispatch.vkBindImageMemory),
+                .vkGetBufferMemoryRequirements = @ptrCast(dkb.dispatch.vkGetBufferMemoryRequirements),
+                .vkGetImageMemoryRequirements = @ptrCast(dkb.dispatch.vkGetImageMemoryRequirements),
+                .vkCreateBuffer = @ptrCast(dkb.dispatch.vkCreateBuffer),
+                .vkDestroyBuffer = @ptrCast(dkb.dispatch.vkDestroyBuffer),
+                .vkCreateImage = @ptrCast(dkb.dispatch.vkCreateImage),
+                .vkDestroyImage = @ptrCast(dkb.dispatch.vkDestroyImage),
+                .vkCmdCopyBuffer = @ptrCast(dkb.dispatch.vkCmdCopyBuffer),
                 // Fetch "vkGetBufferMemoryRequirements2" on Vulkan >= 1.1, fetch "vkGetBufferMemoryRequirements2KHR" when using VK_KHR_dedicated_allocation extension.
-                .vkGetBufferMemoryRequirements2KHR = @ptrCast(renderer.backend.vk.ikb.dispatch.vkGetBufferMemoryRequirements2KHR),
+                .vkGetBufferMemoryRequirements2KHR = @ptrCast(dkb.dispatch.vkGetBufferMemoryRequirements2KHR),
                 // Fetch "vkGetImageMemoryRequirements2" on Vulkan >= 1.1, fetch "vkGetImageMemoryRequirements2KHR" when using VK_KHR_dedicated_allocation extension.
-                .vkGetImageMemoryRequirements2KHR = @ptrCast(renderer.backend.vk.ikb.dispatch.vkGetImageMemoryRequirements2KHR),
+                .vkGetImageMemoryRequirements2KHR = @ptrCast(dkb.dispatch.vkGetImageMemoryRequirements2KHR),
                 // Fetch "vkBindBufferMemory2" on Vulkan >= 1.1, fetch "vkBindBufferMemory2KHR" when using VK_KHR_bind_memory2 extension.
-                .vkBindBufferMemory2KHR = @ptrCast(renderer.backend.vk.ikb.dispatch.vkBindBufferMemory2KHR),
+                .vkBindBufferMemory2KHR = @ptrCast(dkb.dispatch.vkBindBufferMemory2KHR),
                 // Fetch "vkBindImageMemory2" on Vulkan >= 1.1, fetch "vkBindImageMemory2KHR" when using VK_KHR_bind_memory2 extension.
-                .vkBindImageMemory2KHR = @ptrCast(renderer.backend.vk.ikb.dispatch.vkBindImageMemory2KHR),
+                .vkBindImageMemory2KHR = @ptrCast(dkb.dispatch.vkBindImageMemory2KHR),
                 // Fetch from "vkGetPhysicalDeviceMemoryProperties2" on Vulkan >= 1.1, but you can also fetch it from "vkGetPhysicalDeviceMemoryProperties2KHR" if you enabled extension
                 // VK_KHR_get_physical_device_properties2.
-                .vkGetPhysicalDeviceMemoryProperties2KHR = @ptrCast(renderer.backend.vk.ikb.dispatch.vkGetPhysicalDeviceMemoryProperties2KHR),
+                .vkGetPhysicalDeviceMemoryProperties2KHR = @ptrCast(ikb.dispatch.vkGetPhysicalDeviceMemoryProperties2KHR),
                 // Fetch from "vkGetDeviceBufferMemoryRequirements" on Vulkan >= 1.3, but you can also fetch it from "vkGetDeviceBufferMemoryRequirementsKHR" if you enabled extension VK_KHR_maintenance4.
-                .vkGetDeviceBufferMemoryRequirements = @ptrCast(renderer.backend.vk.ikb.dispatch.vkGetDeviceBufferMemoryRequirements),
+                .vkGetDeviceBufferMemoryRequirements = @ptrCast(dkb.dispatch.vkGetDeviceBufferMemoryRequirements),
                 // Fetch from "vkGetDeviceImageMemoryRequirements" on Vulkan >= 1.3, but you can also fetch it from "vkGetDeviceImageMemoryRequirementsKHR" if you enabled extension VK_KHR_maintenance4.
-                .vkGetDeviceImageMemoryRequirements = @ptrCast(renderer.backend.vk.ikb.dispatch.vkGetDeviceImageMemoryRequirements),
+                .vkGetDeviceImageMemoryRequirements = @ptrCast(dkb.dispatch.vkGetDeviceImageMemoryRequirements),
             };
 
-            var vma_create_info: vma.c.VmaAllocatorCreateInfo = .{ .physicalDevice = @ptrCast(adapter.backend.vk.physical_device), .device = @ptrCast(device), .flags = (if (adapter.backend.vk.is_buffer_device_address_supported) @as(u32, @intCast(vma.c.VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT)) else 0) |
-                (if (adapter.backend.vk.is_amd_device_coherent_memory_supported) @as(u32, @intCast(vma.c.VMA_ALLOCATOR_CREATE_AMD_DEVICE_COHERENT_MEMORY_BIT)) else 0), .instance = @ptrCast(renderer.backend.vk.instance), .pVulkanFunctions = &vulkan_func, .vulkanApiVersion = renderer.backend.vk.ikb.dispatch.VK_API_VERSION_1_3 };
+            // zig fmt: off
+            var vma_create_info: vma.c.VmaAllocatorCreateInfo = .{ 
+                .physicalDevice = @ptrFromInt(@intFromEnum(adapter.backend.vk.physical_device)), 
+                .device = @ptrFromInt(@intFromEnum(device)), 
+                .flags = (if (adapter.backend.vk.is_buffer_device_address_supported) @as(u32, @intCast(vma.c.VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT)) else 0) | 
+                         (if (adapter.backend.vk.is_amd_device_coherent_memory_supported) @as(u32, @intCast(vma.c.VMA_ALLOCATOR_CREATE_AMD_DEVICE_COHERENT_MEMORY_BIT)) else 0), 
+                .instance = @ptrFromInt(@intFromEnum(renderer.backend.vk.instance)), 
+                .pVulkanFunctions = &vulkan_func, 
+                .vulkanApiVersion = @bitCast(rhi.vulkan.vk.API_VERSION_1_3) 
+            };
+            // zig fmt: on
             var vma_allocator: vma.c.VmaAllocator = null;
-            try vulkan.wrap_err(vma.c.vmaCreateAllocator(&vma_create_info, &vma_allocator));
+            try rhi.vulkan.wrap_vk_result(@enumFromInt(vma.c.vmaCreateAllocator(&vma_create_info, &vma_allocator)));
             break :p vma_allocator;
         };
 
